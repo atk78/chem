@@ -1,0 +1,3 @@
+SMILES,Predicted Value(mean),Predicted Value(std)
+*CC(*)c1ccc(C(F)(F)C(F)(F)C(F)(F)C(F)(F)C(F)(F)C(F)(F)C(F)(F)F)cc1,72.532,29.017828
+*CC(*)c1ccccc1,102.06871,9.043074
