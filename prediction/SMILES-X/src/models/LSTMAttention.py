@@ -105,7 +105,7 @@ class LightningModel(pl.LightningModule):
         **kwargs
     ):
         super().__init__(*args, **kwargs)
-        self.save_hyperparameters(*args)
+        self.save_hyperparameters(logger=True)
         self.lr = learning_rate
         self.log_flag = log_flag
         if loss_func == "MAE":

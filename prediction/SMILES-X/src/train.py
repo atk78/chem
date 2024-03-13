@@ -184,14 +184,6 @@ def trainer(
     loss_func="MAE",
 ):
     training_dir = os.path.join(save_dir, "training")
-
-    #     os.makedirs(training_dir)
-    # else:
-    #     os.makedirs(training_dir)
-
-    # with open(os.path.join(training_dir, "best_hyper_params.pkl"), mode="wb") as f:
-    #     pickle.dump(best_hyper_params, f)
-
     train_dataloader = dataset.make_dataloader(
         x_train, y_train, batch_size=best_hyper_params[4], shuffle=True
     )

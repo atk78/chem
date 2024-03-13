@@ -71,18 +71,3 @@ class DataModule(pl.LightningDataModule):
             )
         else:
             raise Exception("length of valid dataset is zero.")
-
-    # def test_dataloader(self):
-    #     sample_size = len(self.test_dataset)
-    #     if len(self.test_dataset) != 0:
-    #         return DataLoader(
-    #             self.test_dataset,
-    #             batch_size=self.batch_size if sample_size > self.batch_size else sample_size,
-    #             shuffle=False,
-    #             num_workers=CORES//2,
-    #             pin_memory=True,
-    #             drop_last=False,
-    #             persistent_workers=True
-    #         )
-    #     else:
-    #         raise Exception("length of test dataset is zero.")

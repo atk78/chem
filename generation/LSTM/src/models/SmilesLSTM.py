@@ -1,6 +1,5 @@
 import torch
 from torch import nn, tensor
-import  torch.nn.functional as F
 from torch.distributions import OneHotCategorical
 import pytorch_lightning as pl
 
@@ -65,7 +64,7 @@ class SmilesLSTM(nn.Module):
 
 
 class LightningModel(pl.LightningModule):
-    def __init__(self, vocab, hidden_size, n_layers, learning_rate=1e-3):
+    def __init__(self, vocab_size, hidden_size, n_layers, learning_rate=1e-3):
         """SMILESをLSTMで学習するためのモデルの初期化
 
         Parameters
@@ -78,8 +77,7 @@ class LightningModel(pl.LightningModule):
             層数
         """
         super().__init__()
-        self.vocab = vocab
-        vocab_size = len(self.vocab.char_list)
+        self.save_hyperparameters(logger=True)
         # LSTM本体の定義→入力データの次元、隠れ状態の次元、層数を指定
         # batch_first = True→入力データや隠れ状態のTensorの次元の定義を
         # (batch_size) × (系列長) × (語彙サイズ)にする
@@ -98,9 +96,7 @@ class LightningModel(pl.LightningModule):
         # 予測分布の条件付確率分布。ワンホットベクトルに従う確率分布にするためOneHotCategoricalを用いる
         self.out_dist_cls = OneHotCategorical
         self.lr = learning_rate
-        self.vocab = vocab
-        # self.loss_func = nn.CrossEntropyLoss(reduction="none")
-        self.valid_loss = list()
+        self.loss_func = nn.CrossEntropyLoss(reduction="none")
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -144,8 +140,7 @@ class LightningModel(pl.LightningModule):
         float
             損失関数によって計算された損失
         """
-        # return self.loss_func(in_seq, out_seq)
-        return F.cross_entropy(in_seq, out_seq, reduction="none")
+        return self.loss_func(in_seq, out_seq)
 
     def training_step(self, batch, batch_idx):
         in_seq, out_seq = batch
@@ -154,19 +149,17 @@ class LightningModel(pl.LightningModule):
         # transpose(1, 2)で入れ替え
         in_seq = self.forward(in_seq).transpose(1, 2)
         train_loss = self.loss(in_seq, out_seq).mean()
-        self.log(name="train_loss", value=train_loss, on_step=True, on_epoch=True)
+        self.log("train_loss", train_loss, prog_bar=True, on_step=True, on_epoch=True)
         return train_loss
 
     def validation_step(self, batch, batch_idx):
         in_seq, out_seq = batch
         in_seq = self.forward(in_seq).transpose(1, 2)
-        val_loss = self.loss(in_seq, out_seq).mean()
-        self.log(name="val_loss", value=val_loss, on_step=True, on_epoch=True, prog_bar=True)
-        self.valid_loss.append(val_loss.item())
-        print(batch_idx)
-        return val_loss
+        valid_loss = self.loss(in_seq, out_seq).mean()
+        self.log("valid_loss", valid_loss, prog_bar=True, on_step=False, on_epoch=True)
+        return valid_loss
 
-    def generate(self, sample_size=1, max_len=100, smiles=True):
+    def generate(self, vocab, sample_size=1, max_len=100, smiles=True):
         """訓練したSMILES-LSTMを用いてSMILES系列を生成する
         系列を生成する際には「1文字ずつ生成しては得られた文字を再度入力して次の文字を生成」する
         このときLSTMの隠れ状態や細胞状態を引き継ぐ必要がある。隠れ状態はh、細胞状態はc
@@ -194,7 +187,7 @@ class LightningModel(pl.LightningModule):
             self.eval()
             in_seq_one_hot = (
                 nn.functional.one_hot(
-                    tensor([[self.vocab.sos_idx]] * sample_size),
+                    tensor([[vocab.sos_idx]] * sample_size),
                     num_classes=self.lstm.input_size,
                 )
                 .to(torch.float)
@@ -222,7 +215,7 @@ class LightningModel(pl.LightningModule):
             if smiles:
                 # 出力からSMILESに変換
                 return [
-                    self.vocab.seq2smiles(each_onehot)
+                    vocab.seq2smiles(each_onehot)
                     for each_onehot in torch.argmax(out_seq_one_hot, dim=2)
                 ]
             return out_seq_one_hot
