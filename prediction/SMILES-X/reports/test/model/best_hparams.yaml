@@ -1,0 +1,6 @@
+batch_size: 128
+dense_units: 8
+embedding_dim: 512
+learning_rate: 0.0026070247583707684
+lstm_units: 16
+max_length: 51

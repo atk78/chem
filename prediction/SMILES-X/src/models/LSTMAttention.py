@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import pytorch_lightning as pl
+import lightning as L
 from torchmetrics import MetricCollection, R2Score, MeanAbsoluteError, MeanSquaredError
 
 
@@ -85,7 +85,7 @@ class LSTMAttention(nn.Module):
         return X
 
 
-class LightningModel(pl.LightningModule):
+class LightningModel(L.LightningModule):
     def __init__(
         self,
         token_size,

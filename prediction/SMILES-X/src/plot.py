@@ -73,7 +73,7 @@ def plot_obserbations_vs_predictions(
         ax.plot([axis_min, axis_max], [axis_min, axis_max], color="black", zorder=1)
         ax.set_xlim(left=axis_min, right=axis_max)
         ax.set_ylim(bottom=axis_min, top=axis_max)
-        ax.set_title(f"{phase}: $R^2$ = {r2:.2f}, {loss_func} = {loss:.1f}")
+        ax.set_title(f"{phase}: $R^2$ = {r2:.2f}, {loss_func} = {loss:.2f}")
         ax.set_xlabel("Observations")
         ax.set_ylabel("Predictions")
     ax4.scatter(y_train, y_pred_train, color="royalblue", edgecolor="black", alpha=0.7, zorder=0, label="Training")

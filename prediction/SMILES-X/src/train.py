@@ -1,6 +1,8 @@
 import shutil
 import os
+import platform
 import joblib
+import pickle
 import warnings
 import random
 
@@ -9,10 +11,9 @@ import yaml
 import pandas as pd
 import numpy as np
 import torch
-from torchtyping import TensorType
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+import lightning as L
+from lightning.pytorch.callbacks import ModelCheckpoint, ProgressBar
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import CSVLogger
 import optuna
 
@@ -31,9 +32,10 @@ def seed_everything(seed=1):
     torch.manual_seed(seed)  # PyTorchの乱数生成器のシードをCPU用に設定
     torch.cuda.manual_seed(seed)  # PyTorchの乱数生成器のシードをGPU用に設定
     torch.backends.cudnn.deterministic = True  # PyTorchの畳み込み演算の再現性を確保
-    pl.seed_everything(seed, workers=True)
+    L.seed_everything(seed, workers=True)
 
-class LitProgressBar(pl.callbacks.ProgressBar):
+
+class LitProgressBar(ProgressBar):
     def __init__(self):
         super().__init__()
         self.bar = None
@@ -59,8 +61,10 @@ class LitProgressBar(pl.callbacks.ProgressBar):
     def on_validation_epoch_end(self, trainer, pl_module) -> None:
         if self.bar:
             val_loss = trainer.logged_metrics["valid_loss"].item()
+            val_r2 = trainer.logged_metrics["valid_r2"].item()
             loss = self.running_loss / self.total_train_batches
-            self.bar.set_postfix(loss=f"{loss:.3f}", val_loss=f"{val_loss:.3f}")
+            self.bar.set_postfix({"loss": f"{loss:.3f}", "val_loss": f"{val_loss:.3f}", "val_r2": f"{val_r2:.3f}"})
+            # self.bar.set_postfix(loss=f"{loss:.3f}", val_loss=f"{val_loss:.3f}")
             self.bar.close()
             self.bar = None
 
@@ -71,12 +75,12 @@ class LitProgressBar(pl.callbacks.ProgressBar):
 
 def bayopt_trainer(
     save_dir: str,
-    bayout_bouds: dict,
+    bayopt_bounds: dict,
     max_length: int,
-    x_train: TensorType["n_train_samples", "max_length"],
-    x_valid: TensorType["n_valid_samples", "max_length"],
-    y_train: TensorType["n_train_samples", 1],
-    y_valid: TensorType["n_valid_smaples", 1],
+    x_train: torch.Tensor,
+    x_valid: torch.Tensor,
+    y_train: torch.Tensor,
+    y_valid: torch.Tensor,
     bayopt_n_epochs=10,
     bayopt_n_iters=10,
     precision=32,
@@ -89,8 +93,8 @@ def bayopt_trainer(
     Parameters
     ----------
     save_dir : str
-        訓練結果を保存するディレクトリの場所
-    bayout_bouds : dict
+        _description_
+    bayopt_bounds : dict
         ハイパーパラメータの探索範囲
     max_length : int
         SMILESの最大長
@@ -110,40 +114,47 @@ def bayopt_trainer(
         浮動小数点の精度 32だとfloat32を用い、16だとfloat16を用いる, by default 32
     loss_func : str, optional
         損失関数の種類 MAEとRMSEが選択できる, by default "MAE"
-    """
+    n_gpus : int, optional
+        GPUの並列数, by default 1
+    seed : int, optional
+        ランダムシード値, by default 42
 
+    Returns
+    -------
+    _type_
+        _description_
+    """
     # Optunaの学習用関数を内部に作成
     def objective(trial):
         n_lstm_units = trial.suggest_int(
             "n_lstm_units",
-            bayout_bouds["lstm_units"][0],
-            bayout_bouds["lstm_units"][1],
+            bayopt_bounds["lstm_units"][0],
+            bayopt_bounds["lstm_units"][1],
         )
         n_dense_units = trial.suggest_int(
             "n_dense_units",
-            bayout_bouds["dense_units"][0],
-            bayout_bouds["dense_units"][1],
+            bayopt_bounds["dense_units"][0],
+            bayopt_bounds["dense_units"][1],
         )
         n_embedding_dim = trial.suggest_int(
             "n_embedding_dim",
-            bayout_bouds["embedding_dim"][0],
-            bayout_bouds["embedding_dim"][1],
+            bayopt_bounds["embedding_dim"][0],
+            bayopt_bounds["embedding_dim"][1],
         )
         n_batch_size = trial.suggest_int(
             "n_batch_size",
-            bayout_bouds["batch_size"][0],
-            bayout_bouds["batch_size"][1],
+            bayopt_bounds["batch_size"][0],
+            bayopt_bounds["batch_size"][1],
         )
         lr = trial.suggest_float(
             "learning_rate",
-            bayout_bouds["learning_rate"][0],
-            bayout_bouds["learning_rate"][1],
+            float(bayopt_bounds["learning_rate"][0]),
+            float(bayopt_bounds["learning_rate"][1]),
             log=True,
         )
         data_module = dataset.DataModule(
             x_train, x_valid, y_train, y_valid, batch_size=2 ** n_batch_size
         )
-        # logger = CSVLogger(save_dir, name="bays_opt")
         opt_model = LightningModel(
             token_size=int(max_length),
             learning_rate=lr,
@@ -152,11 +163,13 @@ def bayopt_trainer(
             embedding_dim=2**n_embedding_dim,
             loss_func=loss_func,
         )
-        opt_model = torch.compile(opt_model, mode="reduce-overhead")
-        trainer = pl.Trainer(
+        logger = CSVLogger(save_dir, name="bays_opt")
+        if platform.system() != "Windows":
+            opt_model = torch.compile(opt_model, mode="reduce-overhead")
+        trainer = L.Trainer(
             max_epochs=bayopt_n_epochs,
             precision=precision,
-            # logger=logger,
+            logger=logger,
             callbacks=[LitProgressBar()],
             enable_checkpointing=False,
             devices=n_gpus,
@@ -167,12 +180,12 @@ def bayopt_trainer(
         loss = trainer.logged_metrics["valid_loss"]
 
         return loss
-
+    # ハイパーパラメータの探索の開始
     study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=seed))
     study.optimize(objective, n_trials=bayopt_n_iters)
+    # 探索のうち、一番損失が少なかった条件でのハイパーパラメータを保存
     trial = study.best_trial
-
-    best_hyper_params = {
+    best_hparams = {
         "max_length": int(max_length),
         "lstm_units": 2 ** trial.params["n_lstm_units"],
         "dense_units": 2 ** trial.params["n_dense_units"],
@@ -181,42 +194,39 @@ def bayopt_trainer(
         "learning_rate": trial.params["learning_rate"]
     }
 
-    return best_hyper_params
+    return best_hparams
 
 
 def trainer(
     save_dir,
-    best_hyper_params,
-    x_train,
-    x_valid,
-    y_train,
-    y_valid,
+    best_hparams,
+    x_train: torch.Tensor,
+    x_valid: torch.Tensor,
+    y_train: torch.Tensor,
+    y_valid: torch.Tensor,
     n_epochs=100,
     n_gpus=1,
     precision=32,
     loss_func="MAE",
 ):
     training_dir = os.path.join(save_dir, "training")
-    train_dataloader = dataset.make_dataloader(
-        x_train, y_train, batch_size=best_hyper_params["batch_size"], shuffle=True
+    data_module = dataset.DataModule(
+            x_train, x_valid, y_train, y_valid, batch_size=best_hparams["batch_size"]
     )
-    valid_dataloader = dataset.make_dataloader(
-        x_valid, y_valid, batch_size=best_hyper_params["batch_size"], shuffle=False
-    )
-
     logger = CSVLogger(save_dir, name="training")
     model = LightningModel(
-        token_size=best_hyper_params["max_length"],
-        learning_rate=best_hyper_params["learning_rate"],
-        lstm_units=best_hyper_params["lstm_units"],
-        dense_units=best_hyper_params["dense_units"],
-        embedding_dim=best_hyper_params["embedding_dim"],
+        token_size=best_hparams["max_length"],
+        learning_rate=best_hparams["learning_rate"],
+        lstm_units=best_hparams["lstm_units"],
+        dense_units=best_hparams["dense_units"],
+        embedding_dim=best_hparams["embedding_dim"],
         loss_func=loss_func,
     )
-    model = torch.compile(model, mode="reduce-overhead")
+    if platform.system() != "Windows":
+        model = torch.compile(model, mode="reduce-overhead")  # linuxの場合
     model_checkpoint = ModelCheckpoint(
         dirpath=save_dir,
-        filename="best_weights",
+        filename="training/version_0/best_weights",
         monitor="valid_loss",
         mode="min",
         save_top_k=1,
@@ -227,7 +237,7 @@ def trainer(
         mode="min",
         patience=10
     )
-    trainer = pl.Trainer(
+    trainer = L.Trainer(
         max_epochs=n_epochs,
         precision=precision,
         logger=logger,
@@ -238,21 +248,21 @@ def trainer(
         num_sanity_val_steps=1,
         deterministic=True
     )
-    trainer.fit(
-        model, train_dataloaders=train_dataloader, val_dataloaders=valid_dataloader
+    trainer.fit(model, datamodule=data_module)
+    model = LightningModel.load_from_checkpoint(
+        checkpoint_path=os.path.join(save_dir, "training/version_0/best_weights.ckpt"),
+        hparams_file=os.path.join(save_dir, "training/version_0/hparams.yaml")
     )
-    # TODO: best_weightを読み込んでから
-    torch.save(model.model.state_dict(), os.path.join(save_dir, "best_weight.pth"))
+    torch.save(model.model.state_dict(), os.path.join(save_dir, "model/best_weights.pth"))
     print("Training Finished!!!")
-    return model
 
 
 def main(
-    data,
-    data_name,
+    data: pd.DataFrame,
+    data_name="test",
     bayopt_bounds=None,
     augmentation=False,
-    outdir="../outputs",
+    outdir="../reports",
     bayopt_n_epochs=3,
     bayopt_n_iters=25,
     bayopt_on=True,
@@ -265,11 +275,14 @@ def main(
     n_epochs=100,
     tf16=True,
     loss_func="MAE",
+    scaling=True,
     seed=42,
 ):
+    print(f"OS: {platform.system()}")
     seed_everything(seed)
     if tf16:
-        precision = "16-mixed"
+        # precision = "16-mixed"
+        precision = 16
         print("precision is", precision)
         torch.set_float32_matmul_precision("medium")
     else:
@@ -281,18 +294,23 @@ def main(
     if os.path.exists(save_dir):
         shutil.rmtree(save_dir)
     os.makedirs(save_dir, exist_ok=True)
-    with open(os.path.join(save_dir, "bayopt_bounds.yaml"), "w") as f:
+    model_dir = os.path.join(save_dir, "model")
+    os.makedirs(model_dir)
+    with open(os.path.join(model_dir, "bayopt_bounds.yaml"), "w") as f:
         yaml.dump(bayopt_bounds, f, default_flow_style=False, allow_unicode=True)
 
     print("***Sampling and splitting of the dataset.***\n")
-    smiles_train, smiles_valid, smiles_test, y_train, y_valid, y_test = (
+    smiles_train, smiles_valid, smiles_test, y_train, y_valid, y_test, scaler = (
         utils.random_split(
-            smiles_input=data.iloc[:, 0],
+            smiles_input=np.array(data.iloc[:, 0]),
             prop_input=np.array(data.iloc[:, 1]),
             random_state=seed,
+            scaling=scaling
         )
     )
-
+    if scaler is not None:
+        with open(os.path.join(model_dir, "scaler.pkl"), mode="wb") as f:
+            pickle.dump(scaler, f)
     if smiles_train[0].count("*") == 0:
         poly = False
     else:
@@ -306,16 +324,13 @@ def main(
         y_valid,
         y_test,
         augmentation,
-        save_dir,
+        model_dir,
         poly,
     )
     token.setup()
-    # with open(os.path.join(save_dir, "token.pkl"), mode="wb") as f:
-    #     pickle.dump(token, f)
-    joblib.dump(token, filename=os.path.join(save_dir, "token.pkl2"), compress=3)
-
+    joblib.dump(token, filename=os.path.join(model_dir, "token.pkl.cmp"), compress=3)
     if bayopt_on:
-        best_hyper_params = bayopt_trainer(
+        best_hparams = bayopt_trainer(
             save_dir,
             bayopt_bounds,
             max_length=token.max_length,
@@ -330,7 +345,7 @@ def main(
             n_gpus=n_gpus
         )
     else:
-        best_hyper_params = {
+        best_hparams = {
             "max_length": token.max_length,
             "lstm_units": lstmunits_ref,
             "dense_units": denseunits_ref,
@@ -339,19 +354,19 @@ def main(
             "learning_rate": lr_ref
         }
     print("Best Params")
-    print("LSTM units       |", best_hyper_params["lstm_units"])
-    print("Dense units      |", best_hyper_params["dense_units"])
-    print("Embedding units  |", best_hyper_params["embedding_dim"])
-    print("Batch size       |", best_hyper_params["batch_size"])
-    print("learning rate     |", best_hyper_params["learning_rate"])
+    print("LSTM units       |", best_hparams["lstm_units"])
+    print("Dense units      |", best_hparams["dense_units"])
+    print("Embedding units  |", best_hparams["embedding_dim"])
+    print("Batch size       |", best_hparams["batch_size"])
+    print("learning rate     |", best_hparams["learning_rate"])
     print()
-    with open(os.path.join(save_dir, "best_hyper_params.yaml"), mode="w") as f:
-        yaml.dump(best_hyper_params, f)
+    with open(os.path.join(model_dir, "best_hparams.yaml"), mode="w") as f:
+        yaml.dump(best_hparams, f)
 
     print("***Training of the best model.***\n")
-    model = trainer(
+    trainer(
         save_dir,
-        best_hyper_params,
+        best_hparams,
         x_train=token.enum_tokens_train,
         x_valid=token.enum_tokens_valid,
         y_train=token.enum_prop_train,
@@ -381,26 +396,26 @@ def main(
     print("***Predictions from the best model.***\n")
 
     model = LSTMAttention(
-        token_size=best_hyper_params["max_length"],
-        lstm_units=best_hyper_params["lstm_units"],
-        dense_units=best_hyper_params["dense_units"],
-        embedding_dim=best_hyper_params["embedding_dim"]
+        token_size=best_hparams["max_length"],
+        lstm_units=best_hparams["lstm_units"],
+        dense_units=best_hparams["dense_units"],
+        embedding_dim=best_hparams["embedding_dim"]
     )
-    model.load_state_dict(torch.load(os.path.join(save_dir, "best_weight.pth"), map_location=torch.device("cpu")))
+    model.load_state_dict(torch.load(os.path.join(model_dir, "best_weights.pth"), map_location=torch.device("cpu")))
     y_train, y_pred_train, mae_train, rmse_train, r2_train = utils.evaluation_model(
-        model, token.enum_tokens_train, token.enum_prop_train, token.enum_card_train
+        model, token.enum_tokens_train, token.enum_prop_train, token.enum_card_train, scaler
     )
     print("For the training set:")
     print(f"MAE: {mae_train:.4f} RMSE: {rmse_train:.4f} R^2: {r2_train:.4f}")
 
     y_valid, y_pred_valid, mae_valid, rmse_valid, r2_valid = utils.evaluation_model(
-        model, token.enum_tokens_valid, token.enum_prop_valid, token.enum_card_valid
+        model, token.enum_tokens_valid, token.enum_prop_valid, token.enum_card_valid, scaler
     )
     print("For the validation set:")
     print(f"MAE: {mae_valid:.4f} RMSE: {rmse_valid:.4f} R^2: {r2_valid:.4f}")
 
     y_test, y_pred_test, mae_test, rmse_test, r2_test = utils.evaluation_model(
-        model, token.enum_tokens_test, token.enum_prop_test, token.enum_card_test
+        model, token.enum_tokens_test, token.enum_prop_test, token.enum_card_test, scaler
     )
     print("For the test set:")
     print(f"MAE: {mae_test:.4f} RMSE: {rmse_test:.4f} R^2: {r2_test:.4f}")

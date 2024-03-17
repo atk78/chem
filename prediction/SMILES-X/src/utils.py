@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import DataLoader
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+from sklearn.preprocessing import RobustScaler
 
 from . import utils
 from .dataset import Data
@@ -11,7 +12,8 @@ from .dataset import Data
 np.set_printoptions(precision=3)
 
 
-def random_split(smiles_input, prop_input, lengths=[0.8, 0.1, 0.1], random_state=42):
+def random_split(smiles_input, prop_input, lengths=[0.8, 0.1, 0.1], random_state=42, scaling=True):
+    scaler = None
     prop_input = prop_input.reshape(-1, 1)
     train_ratio = lengths[0]
     validation_ratio = lengths[1]
@@ -34,7 +36,15 @@ def random_split(smiles_input, prop_input, lengths=[0.8, 0.1, 0.1], random_state
         shuffle=True,
         random_state=random_state,
     )
-    return x_train, x_valid, x_test, y_train, y_valid, y_test
+    if scaling:
+        scaler = RobustScaler(with_centering=True,
+                              with_scaling=True,
+                              quantile_range=(5.0, 95.0),
+                              copy=True)
+        y_train = scaler.fit_transform(y_train)
+        y_valid = scaler.transform(y_valid)
+        y_test = scaler.transform(y_test)
+    return x_train, x_valid, x_test, y_train, y_valid, y_test, scaler
 
 
 def mean_median_result(x_cardinal_tmp, y_pred_tmp):
@@ -55,7 +65,7 @@ def mean_median_result(x_cardinal_tmp, y_pred_tmp):
     return y_mean, y_std
 
 
-def evaluation_model(model, enum_smiles, enum_prop, card):
+def evaluation_model(model, enum_smiles, enum_prop, card, scaler):
     model.eval()
     data = Data(enum_smiles, enum_prop)
     if len(enum_prop) < 10000:
@@ -68,10 +78,13 @@ def evaluation_model(model, enum_smiles, enum_prop, card):
     y_pred_list = []
     y_list = []
     for dataset in dataloader:
-        x, y = dataset[0], list(dataset[1].detach().numpy().copy().flatten())
+        x, y = dataset[0], dataset[1].detach().numpy().copy().flatten()
         with torch.no_grad():
             y_pred = model.forward(x)
-        y_pred = list(y_pred.detach().numpy().copy().flatten())
+        y_pred = y_pred.detach().numpy().copy().flatten()
+        if scaler is not None:
+            y = scaler.inverse_transform(y.reshape(-1, 1)).flatten()
+            y_pred = scaler.inverse_transform(y_pred.reshape(-1, 1)).flatten()
         y_pred_list.extend(y_pred)
         y_list.extend(y)
     card = np.array(card)

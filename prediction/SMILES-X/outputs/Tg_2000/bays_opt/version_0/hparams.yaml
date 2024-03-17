@@ -1,8 +1,0 @@
-token_size: 200
-learning_rate: 0.06997635429663669
-lstm_units: 16
-dense_units: 16
-embedding_dim: 64
-return_proba: false
-log_flag: false
-loss_func: RMSE

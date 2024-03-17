@@ -1,9 +1,7 @@
-import multiprocessing
-
 from torch.utils.data import Dataset, DataLoader
-import pytorch_lightning as pl
+import lightning as L
 
-# CORES = multiprocessing.cpu_count() // 2
+
 CORES = 2
 
 class Data(Dataset):
@@ -32,7 +30,7 @@ def make_dataloader(X, prop, batch_size=1, shuffle=False):
     return dataloader
 
 
-class DataModule(pl.LightningDataModule):
+class DataModule(L.LightningDataModule):
     def __init__(self, x_train, x_valid, y_train, y_valid, batch_size=1):
         super().__init__()
         self.x_train, self.x_valid = x_train, x_valid
