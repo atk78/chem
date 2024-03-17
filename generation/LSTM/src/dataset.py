@@ -5,7 +5,8 @@ from torch.utils.data import TensorDataset, DataLoader, Dataset
 import pytorch_lightning as pl
 
 
-CORES = multiprocessing.cpu_count()
+# CORES = multiprocessing.cpu_count() // 2
+CORES = 2
 
 # def make_dataloaders(tensor, batch_size):
 #     # 入力: 最後の一文字前まで 出力: 最初の二文字目から
@@ -41,7 +42,7 @@ class DataModule(pl.LightningDataModule):
                 self.train_dataset,
                 batch_size=self.batch_size,
                 shuffle=True,
-                num_workers=CORES//2,
+                num_workers=CORES,
                 pin_memory=True,
                 drop_last=True,
                 persistent_workers=True
@@ -56,7 +57,7 @@ class DataModule(pl.LightningDataModule):
                 self.valid_dataset,
                 batch_size=self.batch_size if sample_size > self.batch_size else sample_size,
                 shuffle=False,
-                num_workers=CORES//2,
+                num_workers=CORES,
                 pin_memory=True,
                 drop_last=False,
                 persistent_workers=True

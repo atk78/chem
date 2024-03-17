@@ -12,7 +12,7 @@ from rdkit import RDLogger
 
 from . import dataset, token, utils, plot
 from .generate import generate
-from .models.SmilesLSTM import LightningModel
+from .models.SmilesLSTM import LitSmilesVAE
 
 
 warnings.simplefilter("ignore")
@@ -77,7 +77,7 @@ def main(train_smiles, valid_smlies, epochs=2, output_dir="", lr=1e-3, batch_siz
 
     datamodule = dataset.DataModule(train_smiles_tensor, valid_smiles_tensor, batch_size=batch_size)
     vocab_size = len(smiles_vocab.char_list)
-    model = LightningModel(
+    model = LitSmilesVAE(
         vocab_size=vocab_size, hidden_size=512, n_layers=3, learning_rate=lr
     )
     model_checkpoint = ModelCheckpoint(

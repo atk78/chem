@@ -14,6 +14,7 @@ class LitSmilesVAE(pl.LightningModule):
         encoder_params={"hidden_size": 128, "num_layers": 1, "dropout": 0.0},
         decoder_params={"hidden_size": 128, "num_layers": 1, "dropout": 0.0},
         encoder2out_params={"out_dim_list": [128, 128]},
+        beta_schedule=None,
         learning_rate=1e-3
     ):
         """分子生成オートエンコーダは観測変数xを分子に相当するものにして分子生成モデルを作ることとなる。
@@ -42,6 +43,10 @@ class LitSmilesVAE(pl.LightningModule):
         """
         super().__init__()
         self.save_hyperparameters(logger=True)
+        self.lr = learning_rate
+        self.loss_func = nn.CrossEntropyLoss(reduction="none")
+        self.beta_schedule = beta_schedule
+
         self.vocab = vocab
         vocab_size = len(self.vocab.char_list)
         self.max_len = max_len
@@ -53,6 +58,7 @@ class LitSmilesVAE(pl.LightningModule):
         # batch_fisrt=True -> (batch_size)x(系列長)x(語彙サイズ)
         self.encoder = nn.LSTM(emb_dim, batch_first=True, **encoder_params)
         # エンコーダ(LSTM)の出力の末尾(last_out)の次元(in_dim)をout_dim_list[-1]の次元に変換する
+        # エンコーダのLSTMの出力を変換する多層ニューラルネットワーク
         self.encoder2out = nn.Sequential()
         in_dim = (
             encoder_params["hidden_size"] * 2
@@ -63,13 +69,16 @@ class LitSmilesVAE(pl.LightningModule):
             self.encoder2out.append(nn.Linear(in_dim, each_out_dim))
             self.encoder2out.append(nn.Sigmoid())
             in_dim = each_out_dim
+        # encoder2outの出力を潜在空間上の正規分布の平均に変換する線形モデル
         self.encoder_out2mu = nn.Linear(in_dim, latent_dim)
+        # encoder2outの出力を潜在空間上の正規分布の分散共分散行列の対角成分に変換する線形モデル
         self.encoder_out2logvar = nn.Linear(in_dim, latent_dim)
-
+        # 潜在ベクトルをデコーダであるLSTMの細胞状態に変換するモデル
         self.latent2dech = nn.Linear(
             in_features=latent_dim,
             out_features=decoder_params["hidden_size"] * decoder_params["num_layers"]
         )
+        # 潜在ベクトルをデコーダであるLSTMの隠れ状態に変換するモデル
         self.latent2decc = nn.Linear(
             in_features=latent_dim,
             out_features=decoder_params["hidden_size"] * decoder_params["num_layers"]
@@ -80,15 +89,13 @@ class LitSmilesVAE(pl.LightningModule):
         )
         self.decoder2vocab = nn.Linear(decoder_params["hidden_size"], vocab_size)
         self.out_dist_cls = Categorical
-        self.loss_func = nn.CrossEntropyLoss(reduction="none")
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
-
     def encode(self, in_seq):
         """
-        SMILES系列を整数値テンソルで表してin_seqを受け取り、潜在空間上の正規分布の平均と分散共分散行列の対角成分の対数の値を返す
+        SMILES系列を整数値テンソルで表したin_seqを受け取り、潜在空間上の正規分布の平均と分散共分散行列の対角成分の対数の値を返す
         1. 整数値テンソルを埋め込みベクトル系列に変換
         2. 埋め込みベクトルをエンコーダ(LSTM)に入力し、隠れ状態の系列h=out_seq(サンプルサイズx系列長x隠れ状態の次元)を受け取る
         3. 隠れ状態の系列hの最後の要素(out_seq[:,-1,:] 入力系列すべてを反映した隠れ状態)を
@@ -205,36 +212,66 @@ class LitSmilesVAE(pl.LightningModule):
         out_seq_logit, _ = self.decode(z, out_seq, deterministic=deterministic)
         return out_seq_logit, mu, logvar
 
-    def loss(self, in_seq, out_seq):
-        out_seq_logit, mu, logvar = self.forward(in_seq, out_seq)
+    def loss(self, out_seq_logit, mu, logvar, out_seq):
+        """KL情報量を最小化にするための損失関数
+
+        Parameters
+        ----------
+        out_seq_logit : decoderにより出力された
+            _description_
+        mu : _type_
+            _description_
+        logvar : _type_
+            _description_
+        out_seq : _type_
+            _description_
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
+        # out_seq_logit, mu, logvar = self.forward(in_seq, out_seq)
         neg_likelihood = self.loss_func(out_seq_logit.transpose(1, 2), out_seq[:, 1:])
         neg_likelihood = neg_likelihood.sum(axis=1).mean()
         kl_div = -0.5 * (1.0 + logvar - mu**2 - torch.exp(logvar)).sum(axis=1).mean()
         return neg_likelihood + self.beta * kl_div
 
+    def on_train_epoch_start(self) -> None:
+        try:
+            self.beta = self.beta_schedule[self.trainer.current_epoch]
+        except:
+            pass
+
     def training_step(self, batch, batch_idx):
         in_seq, out_seq = batch
-        # forwardメソッドの出力は(バッチサイズ)×(系列長)×(語彙サイズ)
-        # nn.CrossEntropyLossは(バッチサイズ)×(語彙サイズ)×(系列長)を想定
-        # transpose(1, 2)で入れ替え
-        in_seq = self.forward(in_seq).transpose(1, 2)
-        train_loss = self.loss(in_seq, out_seq).mean()
+        out_seq_logit, mu, logvar = self.forward(in_seq, out_seq)
+        train_loss = self.loss(out_seq_logit, mu, logvar, out_seq)
         self.log("train_loss", train_loss, prog_bar=True, on_step=True, on_epoch=True)
         return train_loss
 
     def validation_step(self, batch, batch_idx):
         in_seq, out_seq = batch
-        in_seq = self.forward(in_seq).transpose(1, 2)
-        valid_loss = self.loss(in_seq, out_seq).mean()
-        self.log("valid_loss", valid_loss, prog_bar=True, on_step=False, on_epoch=True)
+        out_seq_logit, mu, logvar = self.forward(in_seq, out_seq)
+        valid_loss = self.loss(out_seq_logit, mu, logvar, out_seq)
+        success = self.reconstruct(in_seq=in_seq, verbose=False)
+        reconstruct_rate = sum(success) / len(success)
+        self.log_dict(
+            dictionary={
+                "valid_loss": valid_loss,
+                "success_rate": reconstruct_rate
+            },
+            prog_bar=True,
+            logger=True,
+            on_step=False,
+            on_epoch=True
+        )
+        # self.log("valid_loss", valid_loss, prog_bar=True, on_step=False, on_epoch=True)
         return valid_loss
 
     def generate(self, z=None, sample_size=None, deterministic=False):
-        device = next(self.paramaters()).device
         if z is None:
-            z = torch.randn(sample_size, self.latent_dim).to(device)
-        else:
-            z = z.to(device)
+            z = torch.randn(sample_size, self.latent_dim)
         with torch.no_grad():
             self.eval()
             _, out_seq = self.decode(z, deterministic=deterministic)
@@ -243,6 +280,24 @@ class LitSmilesVAE(pl.LightningModule):
             return out
 
     def reconstruct(self, in_seq, deterministic=True, max_reconstruct=None, verbose=True):
+        """SMILES系列の集合in_seqを受け取り、SmilesVAEを用いてそれらを再構成できるかのメソッド
+
+        Parameters
+        ----------
+        in_seq : _type_
+            _description_
+        deterministic : bool, optional
+            generateメソッドと同様, by default True
+        max_reconstruct : _type_, optional
+            _description_, by default None
+        verbose : bool, optional
+            Trueの場合、入力したSMILES系列と再構成したSMILES系列を表示する, by default True
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         self.eval()
         if max_reconstruct is not None:
             in_seq = in_seq[:max_reconstruct]
@@ -252,7 +307,7 @@ class LitSmilesVAE(pl.LightningModule):
 
         success_list = []
         for each_idx, each_seq in enumerate(in_seq):
-            truth = self.vocab.seq2smiles(each_seq[::-1])
+            truth = self.vocab.seq2smiles(each_seq)[::-1]
             pred = self.vocab.seq2smiles(out_seq[each_idx])
             success_list.append(truth==pred)
             if verbose:

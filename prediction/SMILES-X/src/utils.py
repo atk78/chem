@@ -1,10 +1,12 @@
-import os
-import random
-
 import numpy as np
 from scipy.ndimage.interpolation import shift
 from sklearn.model_selection import train_test_split
 import torch
+from torch.utils.data import DataLoader
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+
+from . import utils
+from .dataset import Data
 
 np.set_printoptions(precision=3)
 
@@ -53,15 +55,32 @@ def mean_median_result(x_cardinal_tmp, y_pred_tmp):
     return y_mean, y_std
 
 
-def seed_everything(seed=1):
-    random.seed(seed)  # Python標準のrandomモジュールのシードを設定
-    os.environ["PYTHONHASHSEED"] = str(
-        seed
-    )  # ハッシュ生成のためのシードを環境変数に設定
-    np.random.seed(seed)  # NumPyの乱数生成器のシードを設定
-    torch.manual_seed(seed)  # PyTorchの乱数生成器のシードをCPU用に設定
-    torch.cuda.manual_seed(seed)  # PyTorchの乱数生成器のシードをGPU用に設定
-    torch.backends.cudnn.deterministic = True  # PyTorchの畳み込み演算の再現性を確保
+def evaluation_model(model, enum_smiles, enum_prop, card):
+    model.eval()
+    data = Data(enum_smiles, enum_prop)
+    if len(enum_prop) < 10000:
+        batch_size = len(enum_prop)
+    else:
+        batch_size = 10000
+    dataloader = DataLoader(
+        data, batch_size=batch_size, shuffle=False, drop_last=False
+    )
+    y_pred_list = []
+    y_list = []
+    for dataset in dataloader:
+        x, y = dataset[0], list(dataset[1].detach().numpy().copy().flatten())
+        with torch.no_grad():
+            y_pred = model.forward(x)
+        y_pred = list(y_pred.detach().numpy().copy().flatten())
+        y_pred_list.extend(y_pred)
+        y_list.extend(y)
+    card = np.array(card)
+    y_pred, _ = utils.mean_median_result(card, y_pred_list)
+    y, _ = utils.mean_median_result(card, y_list)
+    mae = mean_absolute_error(y, y_pred)
+    rmse = mean_squared_error(y, y_pred, squared=False)
+    r2 = r2_score(y, y_pred)
+    return y, y_pred, mae, rmse, r2
 
 
 # def random_split(smiles_input, prop_input, random_state):

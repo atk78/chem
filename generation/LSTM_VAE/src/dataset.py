@@ -1,11 +1,13 @@
 import multiprocessing
 
-from pytorch_lightning.utilities.types import TRAIN_DATALOADERS
+import torch
 from torch.utils.data import TensorDataset, DataLoader, Dataset
 import pytorch_lightning as pl
+from pytorch_lightning.utilities.types import TRAIN_DATALOADERS
 
 
-CORES = multiprocessing.cpu_count()
+# CORES = multiprocessing.cpu_count()
+CORES = 4
 
 # def make_dataloaders(tensor, batch_size):
 #     # 入力: 最後の一文字前まで 出力: 最初の二文字目から
@@ -16,7 +18,7 @@ CORES = multiprocessing.cpu_count()
 
 class Data(Dataset):
     def __init__(self, smiles_tensor):
-        self.in_seq, self.out_seq = smiles_tensor[:, :-1], smiles_tensor[:, 1:]
+        self.in_seq, self.out_seq = torch.flip(smiles_tensor, dims=[1]), smiles_tensor  # flip -> 逆方向
 
     def __len__(self):
         return len(self.in_seq)
@@ -41,7 +43,7 @@ class DataModule(pl.LightningDataModule):
                 self.train_dataset,
                 batch_size=self.batch_size,
                 shuffle=True,
-                num_workers=CORES//2,
+                num_workers=CORES,
                 pin_memory=True,
                 drop_last=True,
                 persistent_workers=True
@@ -56,7 +58,7 @@ class DataModule(pl.LightningDataModule):
                 self.valid_dataset,
                 batch_size=self.batch_size if sample_size > self.batch_size else sample_size,
                 shuffle=False,
-                num_workers=CORES//2,
+                num_workers=CORES,
                 pin_memory=True,
                 drop_last=False,
                 persistent_workers=True

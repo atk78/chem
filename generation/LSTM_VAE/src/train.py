@@ -11,8 +11,7 @@ from lightning.pytorch.loggers import CSVLogger
 from rdkit import RDLogger
 
 from . import dataset, token, utils, plot
-from .generate import generate
-from .models.SmilesLSTM import LightningModel
+from .models.SmilesVAE import LitSmilesVAE
 
 
 warnings.simplefilter("ignore")
@@ -55,7 +54,16 @@ class LitProgressBar(pl.callbacks.ProgressBar):
         self.enabled = False
 
 
-def main(train_smiles, valid_smlies, epochs=2, output_dir="", lr=1e-3, batch_size=128):
+def main(
+    train_smiles,
+    valid_smlies,
+    epochs=10,
+    lr=1e-3,
+    batch_size=128,
+    output_dir=".",
+    beta_schedule=None,
+    n_log_step=50,
+):
     training_dir = os.path.join(output_dir, "training")
     if os.path.exists(training_dir):
         shutil.rmtree(training_dir)
@@ -75,10 +83,28 @@ def main(train_smiles, valid_smlies, epochs=2, output_dir="", lr=1e-3, batch_siz
     print("Convert to token.")
     print(smiles_vocab.smiles2seq(smiles_vocab.seq2smiles(train_smiles_tensor[0])))
 
-    datamodule = dataset.DataModule(train_smiles_tensor, valid_smiles_tensor, batch_size=batch_size)
-    vocab_size = len(smiles_vocab.char_list)
-    model = LightningModel(
-        vocab_size=vocab_size, hidden_size=512, n_layers=3, learning_rate=lr
+    datamodule = dataset.DataModule(
+        train_smiles_tensor, valid_smiles_tensor, batch_size=batch_size
+    )
+
+    # vocab_size = len(smiles_vocab.char_list)
+    max_len = valid_smiles_tensor.shape[1]
+
+    model = LitSmilesVAE(
+        vocab=smiles_vocab,
+        latent_dim=64,
+        emb_dim=256,
+        encoder_params={
+            "hidden_size": 512,
+            "num_layers": 1,
+            "bidirectional": False,
+            "dropout": 0,
+        },
+        decoder_params={"hidden_size": 512, "num_layers": 1, "dropout": 0},
+        encoder2out_params={"out_dim_list": [256]},
+        max_len=max_len,
+        learning_rate=lr,
+        beta_schedule=beta_schedule,
     )
     model_checkpoint = ModelCheckpoint(
         dirpath=training_dir,
@@ -95,19 +121,23 @@ def main(train_smiles, valid_smlies, epochs=2, output_dir="", lr=1e-3, batch_siz
         enable_checkpointing=True,
         callbacks=[model_checkpoint, LitProgressBar()],
         default_root_dir=training_dir,
+        log_every_n_steps=n_log_step,
     )
     trainer.fit(model, datamodule=datamodule)
     print("Training Finished!!!")
 
-    # generated_smiles_list = model.generate(smiles_vocab, sample_size=10000)
-    generated_smiles_list = generate(model, smiles_vocab, sample_size=1000)
+    generated_smiles_list = model.generate(sample_size=1000)
+    # generated_smiles_list = generate(model, sample_size=1000)
     with open(os.path.join(output_dir, "smiles_vocab.pkl"), mode="wb") as f:
         pickle.dump(smiles_vocab, f)
     print(f"success rate: {utils.valid_ratio(generated_smiles_list)}")
     img_dir = os.path.join(output_dir, "images")
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
+
     metrics_df = pd.read_csv(os.path.join(training_dir, "version_0/metrics.csv"))
     train_loss = metrics_df[["step", "train_loss_step"]].dropna()
     valid_loss = metrics_df[["step", "valid_loss"]].dropna()
+    reconstruction_rate = metrics_df[["step", "success_rate"]].dropna()
     plot.plot_minibatch_loss(train_loss, valid_loss, img_dir)
+    plot.plot_reconstruction_rate(reconstruction_rate, img_dir)

@@ -63,7 +63,7 @@ class SmilesLSTM(nn.Module):
         return output
 
 
-class LightningModel(pl.LightningModule):
+class LitSmilesVAE(pl.LightningModule):
     def __init__(self, vocab_size, hidden_size, n_layers, learning_rate=1e-3):
         """SMILESをLSTMで学習するためのモデルの初期化
 

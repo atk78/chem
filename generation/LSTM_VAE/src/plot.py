@@ -26,3 +26,16 @@ def plot_minibatch_loss(train_loss, valid_loss, img_dir):
     ax.set_ylabel("Loss function")
     fig.savefig(fname=os.path.join(img_dir, "History.png"))
     plt.show()
+
+
+def plot_reconstruction_rate(reconstruction_rate, img_dir):
+    step = reconstruction_rate.iloc[:, 0]
+    reconstruction_rate = reconstruction_rate.iloc[:, 1]
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.plot(step, reconstruction_rate, label="reconstruction rate")
+    ax.legend()
+    ax.set_xlabel("# of batchs")
+    ax.set_ylabel("Reconstruction rate")
+    fig.savefig(fname=os.path.join(img_dir, "Reconstruction_rate.png"))
+    plt.show()

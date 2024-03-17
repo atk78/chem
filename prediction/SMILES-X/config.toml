@@ -1,0 +1,5 @@
+lstm_units = [3, 7]
+dense_units = [3, 7]
+embedding_dim = [3, 7]
+batch_size = [5, 10]
+learning_rate = [1e-5, 1e-2]

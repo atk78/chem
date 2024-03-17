@@ -1,14 +1,8 @@
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from torchmetrics import MetricCollection, R2Score, MeanAbsoluteError, MeanSquaredError
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-
-from .. import utils
-from ..dataset import Data
 
 
 class TimeDistributedDense(nn.Module):
@@ -49,10 +43,12 @@ class Attention(nn.Module):
         et = self.inner_dense(x)
         et = self.tanh(et)
         et = torch.squeeze(input=et)
+        # et = et.view(et.shape[0], -1)
         at = self.softmax(et)
         if mask is not None:
             at *= mask.type(torch.float32)
         atx = torch.unsqueeze(input=at, dim=-1)
+        # atx = at.view(at.shape[0], at.shape[1], 1)
         ot = x * atx
         if self.return_proba:
             return atx
@@ -81,7 +77,6 @@ class LSTMAttention(nn.Module):
         self.output_layer = nn.Linear(dense_units, out_features=1)
 
     def forward(self, X):
-        # モデルの順伝播
         X = self.embedding_layer(X)
         X, _ = self.bilstm_layer(X)
         X = self.timedistributed_dense_layer(X)
@@ -99,7 +94,6 @@ class LightningModel(pl.LightningModule):
         dense_units=16,
         embedding_dim=32,
         return_proba=False,
-        log_flag=False,
         loss_func="MAE",
         *args,
         **kwargs
@@ -107,18 +101,22 @@ class LightningModel(pl.LightningModule):
         super().__init__(*args, **kwargs)
         self.save_hyperparameters(logger=True)
         self.lr = learning_rate
-        self.log_flag = log_flag
         if loss_func == "MAE":
             self.loss_func = F.l1_loss
+            self.train_metrics = MetricCollection(
+                {"train_r2": R2Score(), "train_loss": MeanAbsoluteError()}
+            )
             self.valid_metrics = MetricCollection(
                 {"valid_r2": R2Score(), "valid_loss": MeanAbsoluteError()}
             )
         else:
             self.loss_func = F.mse_loss
+            self.train_metrics = MetricCollection(
+                {"train_r2": R2Score(), "train_loss": MeanSquaredError(squared=True)}
+            )
             self.valid_metrics = MetricCollection(
                 {"valid_r2": R2Score(), "valid_loss": MeanSquaredError(squared=True)}
             )
-
         self.model = LSTMAttention(
             token_size, lstm_units, dense_units, embedding_dim, return_proba
         )
@@ -144,54 +142,26 @@ class LightningModel(pl.LightningModule):
         X, y = batch
         output = self.forward(X)
         loss = self.loss(output, y)
+        self.train_metrics(output, y)
+        self.log_dict(
+            dictionary=self.train_metrics,
+            on_epoch=True,
+            on_step=False,
+            logger=True,
+            prog_bar=True,
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
         # モデルの学習
         X, y = batch
         output = self.forward(X)
-        loss = self.loss(output, y)
-        self.valid_metrics(output, y)
-        if self.log_flag:
-            self.log_dict(
-                dictionary=self.valid_metrics,
-                on_epoch=True,
-                on_step=False,
-                logger=True,
-                prog_bar=True,
-            )
-        else:
-            self.log(
-                name="valid_loss",
-                value=loss,
-                on_step=False,
-                on_epoch=True,
-                prog_bar=True,
-            )
-        return loss
-
-    def evaluation_model(self, enum_smiles, enum_prop, card):
-        data = Data(enum_smiles, enum_prop)
-        if len(enum_prop) < 10000:
-            batch_size = len(enum_prop)
-        else:
-            batch_size = 10000
-        dataloader = DataLoader(
-            data, batch_size=batch_size, shuffle=False, drop_last=False
+        loss = self.valid_metrics(output, y)
+        self.log_dict(
+            dictionary=self.valid_metrics,
+            on_epoch=True,
+            on_step=False,
+            logger=True,
+            prog_bar=True,
         )
-        y_pred_list = []
-        y_list = []
-        for dataset in dataloader:
-            x, y = dataset[0], list(dataset[1].detach().numpy().copy().flatten())
-            with torch.no_grad():
-                y_pred = self.forward(x)
-            y_pred = list(y_pred.detach().numpy().copy().flatten())
-            y_pred_list.extend(y_pred)
-            y_list.extend(y)
-        card = np.array(card)
-        y_pred, _ = utils.mean_median_result(card, y_pred_list)
-        y, _ = utils.mean_median_result(card, y_list)
-        mae = mean_absolute_error(y, y_pred)
-        rmse = mean_squared_error(y, y_pred, squared=False)
-        r2 = r2_score(y, y_pred)
-        return y, y_pred, mae, rmse, r2
+        return loss

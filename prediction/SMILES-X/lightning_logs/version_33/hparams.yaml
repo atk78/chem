@@ -1,0 +1,7 @@
+token_size: 200
+learning_rate: 0.0007476312062252305
+lstm_units: 8
+dense_units: 16
+embedding_dim: 32
+return_proba: false
+loss_func: MSE

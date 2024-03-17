@@ -90,7 +90,6 @@ def main(
     )
 
     model.eval()
-    token.enum_tokens
     with torch.no_grad():
         y_pred = model.forward(token.enum_tokens).detach().numpy()
     card = np.array(token.enum_card)

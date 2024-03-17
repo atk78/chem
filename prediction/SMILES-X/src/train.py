@@ -1,28 +1,37 @@
 import shutil
 import os
-import pickle
+import joblib
 import warnings
+import random
+
 from tqdm import tqdm
-
-# from tqdm.notebook import tqdm
-
+import yaml
 import pandas as pd
 import numpy as np
 import torch
 from torchtyping import TensorType
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import CSVLogger
 import optuna
 
-from .models.LSTMAttention import LightningModel
+from .models.LSTMAttention import LightningModel, LSTMAttention
 from .token import TrainToken
 from . import utils, plot, dataset
 
 
 warnings.simplefilter("ignore")
 
+
+def seed_everything(seed=1):
+    random.seed(seed)  # Python標準のrandomモジュールのシードを設定
+    os.environ["PYTHONHASHSEED"] = str(seed)  # ハッシュ生成のためのシードを環境変数に設定
+    np.random.seed(seed)  # NumPyの乱数生成器のシードを設定
+    torch.manual_seed(seed)  # PyTorchの乱数生成器のシードをCPU用に設定
+    torch.cuda.manual_seed(seed)  # PyTorchの乱数生成器のシードをGPU用に設定
+    torch.backends.cudnn.deterministic = True  # PyTorchの畳み込み演算の再現性を確保
+    pl.seed_everything(seed, workers=True)
 
 class LitProgressBar(pl.callbacks.ProgressBar):
     def __init__(self):
@@ -72,6 +81,8 @@ def bayopt_trainer(
     bayopt_n_iters=10,
     precision=32,
     loss_func="MAE",
+    n_gpus=1,
+    seed=42
 ):
     """Optunaによるベイズ最適化によりハイパーパラメータを決定するための訓練を行う関数
 
@@ -132,43 +143,45 @@ def bayopt_trainer(
         data_module = dataset.DataModule(
             x_train, x_valid, y_train, y_valid, batch_size=2 ** n_batch_size
         )
-        logger = CSVLogger(save_dir, name="bays_opt")
+        # logger = CSVLogger(save_dir, name="bays_opt")
         opt_model = LightningModel(
             token_size=int(max_length),
             learning_rate=lr,
             lstm_units=2**n_lstm_units,
             dense_units=2**n_dense_units,
             embedding_dim=2**n_embedding_dim,
-            log_flag=False,
             loss_func=loss_func,
         )
+        opt_model = torch.compile(opt_model, mode="reduce-overhead")
         trainer = pl.Trainer(
             max_epochs=bayopt_n_epochs,
             precision=precision,
-            logger=logger,
+            # logger=logger,
             callbacks=[LitProgressBar()],
             enable_checkpointing=False,
+            devices=n_gpus,
             num_sanity_val_steps=1,
+            deterministic=True
         )
         trainer.fit(opt_model, datamodule=data_module)
         loss = trainer.logged_metrics["valid_loss"]
 
         return loss
 
-    study = optuna.create_study()
+    study = optuna.create_study(sampler=optuna.samplers.RandomSampler(seed=seed))
     study.optimize(objective, n_trials=bayopt_n_iters)
     trial = study.best_trial
 
-    best_hyper_param = [
-        int(max_length),
-        2 ** trial.params["n_lstm_units"],
-        2 ** trial.params["n_dense_units"],
-        2 ** trial.params["n_embedding_dim"],
-        2 ** trial.params["n_batch_size"],
-        trial.params["learning_rate"],
-    ]
+    best_hyper_params = {
+        "max_length": int(max_length),
+        "lstm_units": 2 ** trial.params["n_lstm_units"],
+        "dense_units": 2 ** trial.params["n_dense_units"],
+        "embedding_dim": 2 ** trial.params["n_embedding_dim"],
+        "batch_size": 2 ** trial.params["n_batch_size"],
+        "learning_rate": trial.params["learning_rate"]
+    }
 
-    return best_hyper_param
+    return best_hyper_params
 
 
 def trainer(
@@ -185,11 +198,22 @@ def trainer(
 ):
     training_dir = os.path.join(save_dir, "training")
     train_dataloader = dataset.make_dataloader(
-        x_train, y_train, batch_size=best_hyper_params[4], shuffle=True
+        x_train, y_train, batch_size=best_hyper_params["batch_size"], shuffle=True
     )
     valid_dataloader = dataset.make_dataloader(
-        x_valid, y_valid, batch_size=best_hyper_params[4], shuffle=False
+        x_valid, y_valid, batch_size=best_hyper_params["batch_size"], shuffle=False
     )
+
+    logger = CSVLogger(save_dir, name="training")
+    model = LightningModel(
+        token_size=best_hyper_params["max_length"],
+        learning_rate=best_hyper_params["learning_rate"],
+        lstm_units=best_hyper_params["lstm_units"],
+        dense_units=best_hyper_params["dense_units"],
+        embedding_dim=best_hyper_params["embedding_dim"],
+        loss_func=loss_func,
+    )
+    model = torch.compile(model, mode="reduce-overhead")
     model_checkpoint = ModelCheckpoint(
         dirpath=save_dir,
         filename="best_weights",
@@ -198,31 +222,27 @@ def trainer(
         save_top_k=1,
         save_last=False,
     )
-    logger = CSVLogger(save_dir, name="training")
-    model = LightningModel(
-        token_size=best_hyper_params[0],
-        learning_rate=best_hyper_params[5],
-        lstm_units=best_hyper_params[1],
-        dense_units=best_hyper_params[2],
-        embedding_dim=best_hyper_params[3],
-        log_flag=True,
-        loss_func=loss_func,
+    early_stopping = EarlyStopping(
+        monitor="valid_loss",
+        mode="min",
+        patience=10
     )
     trainer = pl.Trainer(
         max_epochs=n_epochs,
         precision=precision,
         logger=logger,
         enable_checkpointing=True,
-        callbacks=[model_checkpoint, LitProgressBar()],
+        callbacks=[model_checkpoint, early_stopping, LitProgressBar()],
         default_root_dir=training_dir,
-        num_nodes=n_gpus,
+        devices=n_gpus,
         num_sanity_val_steps=1,
+        deterministic=True
     )
     trainer.fit(
         model, train_dataloaders=train_dataloader, val_dataloaders=valid_dataloader
     )
-    with open(os.path.join(save_dir, "best_hyper_params.pkl"), mode="wb") as f:
-        pickle.dump(best_hyper_params, f)
+    # TODO: best_weightを読み込んでから
+    torch.save(model.model.state_dict(), os.path.join(save_dir, "best_weight.pth"))
     print("Training Finished!!!")
     return model
 
@@ -247,7 +267,7 @@ def main(
     loss_func="MAE",
     seed=42,
 ):
-    utils.seed_everything(seed)
+    seed_everything(seed)
     if tf16:
         precision = "16-mixed"
         print("precision is", precision)
@@ -261,6 +281,8 @@ def main(
     if os.path.exists(save_dir):
         shutil.rmtree(save_dir)
     os.makedirs(save_dir, exist_ok=True)
+    with open(os.path.join(save_dir, "bayopt_bounds.yaml"), "w") as f:
+        yaml.dump(bayopt_bounds, f, default_flow_style=False, allow_unicode=True)
 
     print("***Sampling and splitting of the dataset.***\n")
     smiles_train, smiles_valid, smiles_test, y_train, y_valid, y_test = (
@@ -288,8 +310,9 @@ def main(
         poly,
     )
     token.setup()
-    with open(os.path.join(save_dir, "token.pkl"), mode="wb") as f:
-        pickle.dump(token, f)
+    # with open(os.path.join(save_dir, "token.pkl"), mode="wb") as f:
+    #     pickle.dump(token, f)
+    joblib.dump(token, filename=os.path.join(save_dir, "token.pkl2"), compress=3)
 
     if bayopt_on:
         best_hyper_params = bayopt_trainer(
@@ -304,24 +327,28 @@ def main(
             bayopt_n_iters=bayopt_n_iters,
             precision=precision,
             loss_func=loss_func,
+            n_gpus=n_gpus
         )
     else:
-        best_hyper_params = [
-            token.max_length,
-            lstmunits_ref,
-            denseunits_ref,
-            embedding_ref,
-            batch_size_ref,
-            lr_ref,
-        ]
+        best_hyper_params = {
+            "max_length": token.max_length,
+            "lstm_units": lstmunits_ref,
+            "dense_units": denseunits_ref,
+            "embedding_dim": embedding_ref,
+            "batch_size": batch_size_ref,
+            "learning_rate": lr_ref
+        }
     print("Best Params")
-    print("LSTM units       |", best_hyper_params[1])
-    print("Dense units      |", best_hyper_params[2])
-    print("Embedding units  |", best_hyper_params[3])
-    print("Batch size       |", best_hyper_params[4])
-    print("leaning rate     |", best_hyper_params[5], end="\n\n")
-    print("***Training of the best model.***\n")
+    print("LSTM units       |", best_hyper_params["lstm_units"])
+    print("Dense units      |", best_hyper_params["dense_units"])
+    print("Embedding units  |", best_hyper_params["embedding_dim"])
+    print("Batch size       |", best_hyper_params["batch_size"])
+    print("learning rate     |", best_hyper_params["learning_rate"])
+    print()
+    with open(os.path.join(save_dir, "best_hyper_params.yaml"), mode="w") as f:
+        yaml.dump(best_hyper_params, f)
 
+    print("***Training of the best model.***\n")
     model = trainer(
         save_dir,
         best_hyper_params,
@@ -332,48 +359,48 @@ def main(
         n_epochs=n_epochs,
         n_gpus=n_gpus,
         precision=precision,
-        loss_func=loss_func,
+        loss_func=loss_func
     )
 
     metrics_df = pd.read_csv(os.path.join(save_dir, "training/version_0/metrics.csv"))
-    valid_loss = metrics_df["valid_loss"].dropna().to_list()
-    valid_r2 = metrics_df["valid_r2"].dropna().to_list()
-    plot.plot_hitory_loss(
-        loss=valid_loss,
-        r2=valid_r2,
+    train_loss = metrics_df["train_loss"].dropna()
+    valid_loss = metrics_df["valid_loss"].dropna()
+    train_r2 = metrics_df["train_r2"].dropna()
+    valid_r2 = metrics_df["valid_r2"].dropna()
+    plot.plot_history_loss(
+        train_loss=train_loss,
+        train_r2=train_r2,
+        valid_loss=valid_loss,
+        valid_r2=valid_r2,
         loss_func=loss_func,
         save_dir=save_dir,
-        data_name=data_name,
+        data_name=data_name
     )
 
     print(f"Best val_loss @ Epoch #{np.argmin(valid_loss)}\n")
     print("***Predictions from the best model.***\n")
 
-    model = LightningModel.load_from_checkpoint(
-        checkpoint_path=os.path.join(save_dir, "best_weights.ckpt"),
-        token_size=best_hyper_params[0],
-        learning_rate=best_hyper_params[5],
-        lstm_units=best_hyper_params[1],
-        dense_units=best_hyper_params[2],
-        embedding_dim=best_hyper_params[3],
-        log_flag=False,
-        map_location=torch.device("cpu"),
+    model = LSTMAttention(
+        token_size=best_hyper_params["max_length"],
+        lstm_units=best_hyper_params["lstm_units"],
+        dense_units=best_hyper_params["dense_units"],
+        embedding_dim=best_hyper_params["embedding_dim"]
     )
-    model.eval()
-    y_train, y_pred_train, mae_train, rmse_train, r2_train = model.evaluation_model(
-        token.enum_tokens_train, token.enum_prop_train, token.enum_card_train
+    model.load_state_dict(torch.load(os.path.join(save_dir, "best_weight.pth"), map_location=torch.device("cpu")))
+    y_train, y_pred_train, mae_train, rmse_train, r2_train = utils.evaluation_model(
+        model, token.enum_tokens_train, token.enum_prop_train, token.enum_card_train
     )
     print("For the training set:")
     print(f"MAE: {mae_train:.4f} RMSE: {rmse_train:.4f} R^2: {r2_train:.4f}")
 
-    y_valid, y_pred_valid, mae_valid, rmse_valid, r2_valid = model.evaluation_model(
-        token.enum_tokens_valid, token.enum_prop_valid, token.enum_card_valid
+    y_valid, y_pred_valid, mae_valid, rmse_valid, r2_valid = utils.evaluation_model(
+        model, token.enum_tokens_valid, token.enum_prop_valid, token.enum_card_valid
     )
     print("For the validation set:")
     print(f"MAE: {mae_valid:.4f} RMSE: {rmse_valid:.4f} R^2: {r2_valid:.4f}")
 
-    y_test, y_pred_test, mae_test, rmse_test, r2_test = model.evaluation_model(
-        token.enum_tokens_test, token.enum_prop_test, token.enum_card_test
+    y_test, y_pred_test, mae_test, rmse_test, r2_test = utils.evaluation_model(
+        model, token.enum_tokens_test, token.enum_prop_test, token.enum_card_test
     )
     print("For the test set:")
     print(f"MAE: {mae_test:.4f} RMSE: {rmse_test:.4f} R^2: {r2_test:.4f}")
