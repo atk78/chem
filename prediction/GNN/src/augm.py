@@ -71,11 +71,11 @@ def Augmentation(smiles_array, prop_array, canon=True, rotate=False):
     smiles_enum = list()
     prop_enum = list()
     smiles_enum_card = list()
-    for csmiles, ismiles in enumerate(smiles_array.tolist()):
-        enumerated_smiles = generate_smiles(ismiles, canon=canon, rotate=rotate)
+    for idx, i_smiles in enumerate(smiles_array.tolist()):
+        enumerated_smiles = generate_smiles(i_smiles, canon=canon, rotate=rotate)
         if "None" not in enumerated_smiles:
             smiles_enum_card.append(len(enumerated_smiles))
             smiles_enum.extend(enumerated_smiles)
-            prop_enum.extend([prop_array[csmiles]] * len(enumerated_smiles))
+            prop_enum.extend([prop_array[idx]] * len(enumerated_smiles))
 
     return np.array(smiles_enum), smiles_enum_card, np.array(prop_enum)

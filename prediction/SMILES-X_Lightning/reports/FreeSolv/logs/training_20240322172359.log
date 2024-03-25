@@ -1,0 +1,90 @@
+2024-03-22 17:23:59 | INFO |    OS: Windows
+2024-03-22 17:23:59 | INFO |    precision is 32
+2024-03-22 17:23:59 | INFO |    ***Sampling and splitting of the dataset.***
+2024-03-22 17:23:59 | INFO |    Train/valid/test splits:0.80/0.10/0.10
+2024-03-22 17:23:59 | INFO |    Setup Molecule Tokens.
+2024-03-22 17:23:59 | INFO |    ***Data augmentation is True.***
+2024-03-22 17:23:59 | INFO |    Augmented SMILES data size:
+2024-03-22 17:24:00 | INFO |    	Training set   | 4345
+2024-03-22 17:24:00 | INFO |    	Validation set | 517
+2024-03-22 17:24:00 | INFO |    	Test set       | 493
+2024-03-22 17:24:00 | INFO |    Number of tokens only present in a training set: 33
+2024-03-22 17:24:00 | INFO |    Number of tokens only present in a validation set: 25
+2024-03-22 17:24:00 | INFO |    Is the validation set a subset of the training set: True
+2024-03-22 17:24:00 | INFO |    What are the tokens by which they differ: set()
+2024-03-22 17:24:00 | INFO |    Number of tokens only present in a test set: 23
+2024-03-22 17:24:00 | INFO |    Is the test set a subset of the training set: True
+2024-03-22 17:24:00 | INFO |    What are the tokens by which they differ: set()
+2024-03-22 17:24:00 | INFO |    Is the test set a subset of the validation set: False
+2024-03-22 17:24:00 | INFO |    What are the tokens by which they differ: {'3', '[C@@]', '[C@]', '-'}
+2024-03-22 17:24:00 | INFO |    Full vocabulary: ['#', '[C@]', 'O', '[O-]', '[C@H]', 'Br', '\\', '2', 'S', ' ', '[C@@H]', '[C@@]', 'F', 'n', '[N+]', 's', '4', ')', 'c', '=', '/', 'C', '[S+2]', '-', '5', 'I', 'Cl', '1', 'N', 'P', '(', '3', '[nH]']
+2024-03-22 17:24:00 | INFO |    Of size: 33
+2024-03-22 17:24:00 | INFO |    Maximum length of tokenized SMILES: 50 tokens(termination spaces included)
+2024-03-22 17:24:13 | INFO |    Trial 0 finished with value: 0.008723588660359383 and parameters: {'n_lstm_units': 5, 'n_dense_units': 10, 'n_embedding_dim': 8, 'n_batch_size': 7, 'learning_rate': 0.0002051338263087451}. Best is trial 0 with value: 0.008723588660359383 and R2: 0.9535681009292603.
+2024-03-22 17:24:26 | INFO |    Trial 1 finished with value: 0.009677030146121979 and parameters: {'n_lstm_units': 4, 'n_dense_units': 3, 'n_embedding_dim': 9, 'n_batch_size': 7, 'learning_rate': 0.0026070247583707684}. Best is trial 0 with value: 0.008723588660359383 and R2: 0.9535681009292603.
+2024-03-22 17:25:18 | INFO |    Trial 2 finished with value: 0.008226797915995121 and parameters: {'n_lstm_units': 3, 'n_dense_units': 10, 'n_embedding_dim': 9, 'n_batch_size': 4, 'learning_rate': 0.0002310201887845295}. Best is trial 2 with value: 0.008226797915995121 and R2: 0.9562123417854309.
+2024-03-22 17:25:36 | INFO |    Trial 3 finished with value: 0.00827387347817421 and parameters: {'n_lstm_units': 4, 'n_dense_units': 5, 'n_embedding_dim': 7, 'n_batch_size': 6, 'learning_rate': 0.0003823475224675188}. Best is trial 2 with value: 0.008226797915995121 and R2: 0.9562123417854309.
+2024-03-22 17:26:06 | INFO |    Trial 4 finished with value: 0.007973729632794857 and parameters: {'n_lstm_units': 7, 'n_dense_units': 4, 'n_embedding_dim': 5, 'n_batch_size': 5, 'learning_rate': 0.000816845589476017}. Best is trial 4 with value: 0.007973729632794857 and R2: 0.9575592875480652.
+2024-03-22 17:26:29 | INFO |    Trial 5 finished with value: 0.011114192195236683 and parameters: {'n_lstm_units': 9, 'n_dense_units': 4, 'n_embedding_dim': 7, 'n_batch_size': 7, 'learning_rate': 0.0001238513729886094}. Best is trial 4 with value: 0.007973729632794857 and R2: 0.9575592875480652.
+2024-03-22 17:26:40 | INFO |    Trial 6 finished with value: 0.015428770333528519 and parameters: {'n_lstm_units': 7, 'n_dense_units': 4, 'n_embedding_dim': 3, 'n_batch_size': 10, 'learning_rate': 0.00853618986286683}. Best is trial 4 with value: 0.007973729632794857 and R2: 0.9575592875480652.
+2024-03-22 17:26:59 | INFO |    Trial 7 finished with value: 0.025414543226361275 and parameters: {'n_lstm_units': 9, 'n_dense_units': 5, 'n_embedding_dim': 3, 'n_batch_size': 8, 'learning_rate': 0.0007591104805282694}. Best is trial 4 with value: 0.007973729632794857 and R2: 0.9575592875480652.
+2024-03-22 17:27:06 | INFO |    Trial 8 finished with value: 0.16782492399215698 and parameters: {'n_lstm_units': 3, 'n_dense_units': 6, 'n_embedding_dim': 3, 'n_batch_size': 10, 'learning_rate': 0.00032927591344236165}. Best is trial 4 with value: 0.007973729632794857 and R2: 0.9575592875480652.
+2024-03-22 17:27:22 | INFO |    Trial 9 finished with value: 0.009136817418038845 and parameters: {'n_lstm_units': 8, 'n_dense_units': 5, 'n_embedding_dim': 7, 'n_batch_size': 7, 'learning_rate': 0.00023426581058204064}. Best is trial 4 with value: 0.007973729632794857 and R2: 0.9575592875480652.
+2024-03-22 17:28:17 | INFO |    Trial 10 finished with value: 0.05361049249768257 and parameters: {'n_lstm_units': 10, 'n_dense_units': 9, 'n_embedding_dim': 10, 'n_batch_size': 10, 'learning_rate': 0.0015696396388661157}. Best is trial 4 with value: 0.007973729632794857 and R2: 0.9575592875480652.
+2024-03-22 17:34:19 | INFO |    Trial 11 finished with value: 0.0062320781871676445 and parameters: {'n_lstm_units': 10, 'n_dense_units': 3, 'n_embedding_dim': 4, 'n_batch_size': 3, 'learning_rate': 0.0004473636174621269}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:34:49 | INFO |    Trial 12 finished with value: 0.007911422289907932 and parameters: {'n_lstm_units': 6, 'n_dense_units': 5, 'n_embedding_dim': 9, 'n_batch_size': 5, 'learning_rate': 0.0003646439558980723}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:36:31 | INFO |    Trial 13 finished with value: 0.009497368708252907 and parameters: {'n_lstm_units': 7, 'n_dense_units': 4, 'n_embedding_dim': 9, 'n_batch_size': 3, 'learning_rate': 0.009413993046829943}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:36:50 | INFO |    Trial 14 finished with value: 0.025628671050071716 and parameters: {'n_lstm_units': 9, 'n_dense_units': 4, 'n_embedding_dim': 3, 'n_batch_size': 9, 'learning_rate': 0.002592475660475161}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:37:30 | INFO |    Trial 15 finished with value: 0.01596321538090706 and parameters: {'n_lstm_units': 8, 'n_dense_units': 9, 'n_embedding_dim': 3, 'n_batch_size': 5, 'learning_rate': 0.0001705053926026929}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:39:57 | INFO |    Trial 16 finished with value: 0.00958617590367794 and parameters: {'n_lstm_units': 9, 'n_dense_units': 7, 'n_embedding_dim': 5, 'n_batch_size': 3, 'learning_rate': 0.0004187594718900631}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:40:05 | INFO |    Trial 17 finished with value: 0.01602974906563759 and parameters: {'n_lstm_units': 5, 'n_dense_units': 8, 'n_embedding_dim': 8, 'n_batch_size': 10, 'learning_rate': 0.0008798929749689024}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:40:18 | INFO |    Trial 18 finished with value: 0.010920625180006027 and parameters: {'n_lstm_units': 3, 'n_dense_units': 8, 'n_embedding_dim': 9, 'n_batch_size': 7, 'learning_rate': 0.003482846706526885}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:42:04 | INFO |    Trial 19 finished with value: 0.008149371482431889 and parameters: {'n_lstm_units': 6, 'n_dense_units': 7, 'n_embedding_dim': 6, 'n_batch_size': 3, 'learning_rate': 0.00016435497475111326}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:42:16 | INFO |    Trial 20 finished with value: 0.007810600101947784 and parameters: {'n_lstm_units': 3, 'n_dense_units': 8, 'n_embedding_dim': 5, 'n_batch_size': 7, 'learning_rate': 0.006533305220227739}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:43:09 | INFO |    Trial 21 finished with value: 0.008141132071614265 and parameters: {'n_lstm_units': 4, 'n_dense_units': 6, 'n_embedding_dim': 9, 'n_batch_size': 4, 'learning_rate': 0.00014254757044027455}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:43:20 | INFO |    Trial 22 finished with value: 0.00985665898770094 and parameters: {'n_lstm_units': 5, 'n_dense_units': 4, 'n_embedding_dim': 10, 'n_batch_size': 9, 'learning_rate': 0.0018484491720988621}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:43:41 | INFO |    Trial 23 finished with value: 0.06006951257586479 and parameters: {'n_lstm_units': 9, 'n_dense_units': 9, 'n_embedding_dim': 4, 'n_batch_size': 10, 'learning_rate': 0.0011986281799901185}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:46:07 | INFO |    Trial 24 finished with value: 0.007329081650823355 and parameters: {'n_lstm_units': 9, 'n_dense_units': 10, 'n_embedding_dim': 5, 'n_batch_size': 3, 'learning_rate': 0.000285673742984719}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:47:42 | INFO |    Trial 25 finished with value: 0.009158213622868061 and parameters: {'n_lstm_units': 6, 'n_dense_units': 9, 'n_embedding_dim': 9, 'n_batch_size': 3, 'learning_rate': 0.001050738402418141}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:48:11 | INFO |    Trial 26 finished with value: 0.0077768838964402676 and parameters: {'n_lstm_units': 6, 'n_dense_units': 4, 'n_embedding_dim': 3, 'n_batch_size': 5, 'learning_rate': 0.007688106801474953}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:48:39 | INFO |    Trial 27 finished with value: 0.009108711034059525 and parameters: {'n_lstm_units': 5, 'n_dense_units': 7, 'n_embedding_dim': 8, 'n_batch_size': 5, 'learning_rate': 0.008781408196485976}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:50:34 | INFO |    Trial 28 finished with value: 0.007600381970405579 and parameters: {'n_lstm_units': 10, 'n_dense_units': 5, 'n_embedding_dim': 6, 'n_batch_size': 5, 'learning_rate': 0.00037126241790405324}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:52:08 | INFO |    Trial 29 finished with value: 0.011180446483194828 and parameters: {'n_lstm_units': 3, 'n_dense_units': 7, 'n_embedding_dim': 7, 'n_batch_size': 3, 'learning_rate': 0.0003608219327363787}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:53:26 | INFO |    Trial 30 finished with value: 0.15135659277439117 and parameters: {'n_lstm_units': 10, 'n_dense_units': 4, 'n_embedding_dim': 4, 'n_batch_size': 6, 'learning_rate': 0.009360540102485375}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:54:17 | INFO |    Trial 31 finished with value: 0.011274311691522598 and parameters: {'n_lstm_units': 4, 'n_dense_units': 8, 'n_embedding_dim': 9, 'n_batch_size': 4, 'learning_rate': 0.0028604390429824616}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:54:30 | INFO |    Trial 32 finished with value: 0.0087733818218112 and parameters: {'n_lstm_units': 5, 'n_dense_units': 8, 'n_embedding_dim': 8, 'n_batch_size': 7, 'learning_rate': 0.0001515582353959763}. Best is trial 11 with value: 0.0062320781871676445 and R2: 0.9668293595314026.
+2024-03-22 17:56:54 | INFO |    Trial 33 finished with value: 0.006033247336745262 and parameters: {'n_lstm_units': 9, 'n_dense_units': 5, 'n_embedding_dim': 4, 'n_batch_size': 3, 'learning_rate': 0.0015197980620034217}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 17:58:09 | INFO |    Trial 34 finished with value: 0.006076355930417776 and parameters: {'n_lstm_units': 8, 'n_dense_units': 3, 'n_embedding_dim': 7, 'n_batch_size': 4, 'learning_rate': 0.0019513967655934471}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 17:58:17 | INFO |    Trial 35 finished with value: 0.1414971649646759 and parameters: {'n_lstm_units': 4, 'n_dense_units': 8, 'n_embedding_dim': 6, 'n_batch_size': 10, 'learning_rate': 0.00018838307787619773}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 17:58:28 | INFO |    Trial 36 finished with value: 0.08367599546909332 and parameters: {'n_lstm_units': 5, 'n_dense_units': 3, 'n_embedding_dim': 10, 'n_batch_size': 10, 'learning_rate': 0.0003280071082578536}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 17:58:45 | INFO |    Trial 37 finished with value: 0.009519483894109726 and parameters: {'n_lstm_units': 8, 'n_dense_units': 9, 'n_embedding_dim': 7, 'n_batch_size': 7, 'learning_rate': 0.00030458224385894087}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 17:59:00 | INFO |    Trial 38 finished with value: 0.01152037549763918 and parameters: {'n_lstm_units': 3, 'n_dense_units': 10, 'n_embedding_dim': 10, 'n_batch_size': 8, 'learning_rate': 0.0004764963542138519}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 17:59:12 | INFO |    Trial 39 finished with value: 0.015621655620634556 and parameters: {'n_lstm_units': 5, 'n_dense_units': 8, 'n_embedding_dim': 10, 'n_batch_size': 10, 'learning_rate': 0.003628700225554068}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 17:59:23 | INFO |    Trial 40 finished with value: 0.034599341452121735 and parameters: {'n_lstm_units': 8, 'n_dense_units': 3, 'n_embedding_dim': 4, 'n_batch_size': 10, 'learning_rate': 0.0016325185294676916}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:01:04 | INFO |    Trial 41 finished with value: 0.011078862473368645 and parameters: {'n_lstm_units': 3, 'n_dense_units': 3, 'n_embedding_dim': 8, 'n_batch_size': 3, 'learning_rate': 0.00020970853331431146}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:01:59 | INFO |    Trial 42 finished with value: 0.0075131626799702644 and parameters: {'n_lstm_units': 7, 'n_dense_units': 8, 'n_embedding_dim': 8, 'n_batch_size': 4, 'learning_rate': 0.0026567974312886175}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:02:08 | INFO |    Trial 43 finished with value: 0.00955374538898468 and parameters: {'n_lstm_units': 4, 'n_dense_units': 5, 'n_embedding_dim': 8, 'n_batch_size': 8, 'learning_rate': 0.004993980255757072}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:02:49 | INFO |    Trial 44 finished with value: 0.010753411799669266 and parameters: {'n_lstm_units': 8, 'n_dense_units': 7, 'n_embedding_dim': 3, 'n_batch_size': 5, 'learning_rate': 0.0003391600849438615}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:02:58 | INFO |    Trial 45 finished with value: 0.01699383370578289 and parameters: {'n_lstm_units': 4, 'n_dense_units': 10, 'n_embedding_dim': 6, 'n_batch_size': 10, 'learning_rate': 0.0018292676411745708}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:03:29 | INFO |    Trial 46 finished with value: 0.009576949290931225 and parameters: {'n_lstm_units': 9, 'n_dense_units': 7, 'n_embedding_dim': 7, 'n_batch_size': 6, 'learning_rate': 0.0002457457272781316}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:03:42 | INFO |    Trial 47 finished with value: 0.04140864312648773 and parameters: {'n_lstm_units': 8, 'n_dense_units': 5, 'n_embedding_dim': 3, 'n_batch_size': 8, 'learning_rate': 0.00022605876925380287}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:06:14 | INFO |    Trial 48 finished with value: 0.008594757877290249 and parameters: {'n_lstm_units': 10, 'n_dense_units': 10, 'n_embedding_dim': 10, 'n_batch_size': 5, 'learning_rate': 0.00010737748632897979}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:07:07 | INFO |    Trial 49 finished with value: 0.0416383296251297 and parameters: {'n_lstm_units': 10, 'n_dense_units': 6, 'n_embedding_dim': 10, 'n_batch_size': 10, 'learning_rate': 0.005081815703555782}. Best is trial 33 with value: 0.006033247336745262 and R2: 0.9678876399993896.
+2024-03-22 18:07:07 | INFO |    Best Trial: 33 with MSE value: 0.006033247336745262
+2024-03-22 18:07:07 | INFO |    Best Params
+2024-03-22 18:07:07 | INFO |    LSTM units       |512
+2024-03-22 18:07:07 | INFO |    Dense units      |32
+2024-03-22 18:07:07 | INFO |    Embedding units  |16
+2024-03-22 18:07:07 | INFO |    Batch size       |8
+2024-03-22 18:07:07 | INFO |    learning rate    |0.0015197980620034217
+2024-03-22 18:07:07 | INFO |    
+2024-03-22 18:07:07 | INFO |    ***Training of the best model.***
+2024-03-22 18:11:45 | INFO |    Training Finished!!!
+2024-03-22 18:11:45 | INFO |    Best val_loss @ Epoch #35
+2024-03-22 18:11:45 | INFO |    ***Predictions from the best model.***
+2024-03-22 18:11:49 | INFO |    For the training set:
+2024-03-22 18:11:49 | INFO |    MAE: 0.1843 RMSE: 0.2252 R^2: 0.9964
+2024-03-22 18:11:49 | INFO |    For the validation set:
+2024-03-22 18:11:49 | INFO |    MAE: 0.5349 RMSE: 0.8379 R^2: 0.9683
+2024-03-22 18:11:49 | INFO |    For the test set:
+2024-03-22 18:11:49 | INFO |    MAE: 0.5498 RMSE: 0.7473 R^2: 0.9473

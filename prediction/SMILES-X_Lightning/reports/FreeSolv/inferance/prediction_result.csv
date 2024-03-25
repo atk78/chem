@@ -1,0 +1,5 @@
+SMILES,Predicted Value(mean),Predicted Value(std)
+COc1ccc(C(=O)N(C)C)cc1,-11.048002,0.14310047
+CS(=O)(=O)Cl,-4.806752,0.23677678
+C=CC(C)C,1.478165,0.040988836
+CCc1cnccn1,-5.554611,0.097736694

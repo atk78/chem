@@ -18,6 +18,15 @@ class Token:
     oov = ["oov"]  # out-of-vocabulary tokens
 
     def __init__(self, augmentation=True, poly=False):
+        """与えられたSMILESの系列をAugmentationによるデータの拡張や、トークン化を実行する
+
+        Parameters
+        ----------
+        augmentation : bool, optional
+            データの拡張を行うかどうかのフラグ, by default True
+        poly : bool, optional
+            SMILESの系列がポリマーかどうかのフラグ, by default False
+        """
         if poly:
             print("Setup Polymer Tokens.")
             self.aliphatic_organic += ["*"]
@@ -142,7 +151,7 @@ class Token:
         enum_tokens = self.int_vec_encode(enum_tokens)
         # torch_enum_tokens = torch.IntTensor(enum_tokens)
         # torch_enum_prop = torch.FloatTensor(enum_prop)
-        torch_enum_tokens = torch.from_numpy(np.array(enum_tokens, dtype=np.int32))
+        torch_enum_tokens = torch.from_numpy(np.array(enum_tokens).astype(np.int32))
         torch_enum_prop = torch.from_numpy(np.array(enum_prop, dtype=np.float32))
         return torch_enum_tokens, torch_enum_prop
 
@@ -178,6 +187,7 @@ class TrainToken(Token):
             rotate=self.rotation,
         )
         enum_tokens_train = self.get_tokens(enum_smiles_train)
+
         enum_smiles_valid, self.enum_card_valid, enum_prop_valid = Augmentation(
             self.smiles_valid,
             self.prop_valid,
@@ -185,6 +195,7 @@ class TrainToken(Token):
             rotate=self.rotation,
         )
         enum_tokens_valid = self.get_tokens(enum_smiles_valid)
+
         enum_smiles_test, self.enum_card_test, enum_prop_test = Augmentation(
             self.smiles_test, self.prop_test, canon=self.canonical, rotate=self.rotation
         )

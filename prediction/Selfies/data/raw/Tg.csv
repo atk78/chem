@@ -1,4 +1,5 @@
-SMILES,tg
+smiles,tg
+*C*,-120
 *CC*,-120
 *CC(*)C,-3
 *CC(*)CC,-24.1
