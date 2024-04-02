@@ -1,20 +1,29 @@
 bayopt_bounds:
-  lstm_units: [3, 10]
-  dense_units: [3, 10]
-  embedding_dim: [3, 10]
-  batch_size: [3, 10]
-  learning_rate: [1e-4, 1e-2]
+  n_conv_hidden_layer: [1, 5]
+  n_dense_hidden_layer: [1, 5]
+  graph_dim: [3, 7]
+  dense_dim: [3, 7]
+  drop_rate: [0.0, 0.3, 0.1]
+  batch_size: [5, 10]
+  learning_rate: [1e-4, 1e-1]
 
 train:
   augmentation: true
+  max_n_augm: 10
+  bayopt_on: true
   bayopt_n_epochs: 10
-  bayopt_n_iters: 3
-  n_epochs: 10
+  bayopt_n_trials: 50
+  n_epochs: 200
   tf16: false
   loss_func: MSE
-  n_gpus: 1
-  seed: 42
+  scaling: true
+  seed: 1
+
+computable_atoms: [C, O, S, N, Si, F, Cl, Br, I, P, B]
+chirality: false
+stereochemistry: true
 
 dataset:
-  filepath: data/processed/FreeSolv_SAMPL.csv
-  prop: expt
+  filepath: data/processed/Tg.csv
+  smiles: smiles
+  prop: tg

@@ -1,0 +1,62 @@
+bayopt_bounds:
+  batch_size:
+  - 5
+  - 10
+  dense_dim:
+  - 3
+  - 7
+  drop_rate:
+  - 0.1
+  - 0.5
+  - 0.1
+  graph_dim:
+  - 3
+  - 7
+  learning_rate:
+  - 1e-4
+  - 1e-1
+  n_conv_hidden_layer:
+  - 1
+  - 5
+  n_dense_hidden_layer:
+  - 1
+  - 5
+chirality: false
+computable_atoms:
+- C
+- O
+- S
+- N
+- Si
+- F
+- Cl
+- Br
+- I
+- P
+- B
+dataset:
+  filepath: data/processed/Tg.csv
+  prop: tg
+  smiles: smiles
+hyper_parameters:
+  model:
+    dense_dim: 128
+    drop_rate: 0.2
+    graph_dim: 128
+    n_conv_hidden_layer: 3
+    n_dense_hidden_layer: 2
+    n_features: 45
+  other:
+    batch_size: 32
+    learning_rate: 0.00037921734741614614
+stereochemistry: true
+train:
+  augmentation: true
+  bayopt_n_epochs: 10
+  bayopt_n_trials: 50
+  bayopt_on: true
+  loss_func: MSE
+  n_epochs: 200
+  scaling: true
+  seed: 1
+  tf16: false
