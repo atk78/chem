@@ -15,7 +15,7 @@ class LitSmilesVAE(pl.LightningModule):
         decoder_params={"hidden_size": 128, "num_layers": 1, "dropout": 0.0},
         encoder2out_params={"out_dim_list": [128, 128]},
         beta_schedule=None,
-        learning_rate=1e-3
+        learning_rate=1e-3,
     ):
         """分子生成オートエンコーダは観測変数xを分子に相当するものにして分子生成モデルを作ることとなる。
         モデルの設計の自由度として
@@ -76,12 +76,12 @@ class LitSmilesVAE(pl.LightningModule):
         # 潜在ベクトルをデコーダであるLSTMの細胞状態に変換するモデル
         self.latent2dech = nn.Linear(
             in_features=latent_dim,
-            out_features=decoder_params["hidden_size"] * decoder_params["num_layers"]
+            out_features=decoder_params["hidden_size"] * decoder_params["num_layers"],
         )
         # 潜在ベクトルをデコーダであるLSTMの隠れ状態に変換するモデル
         self.latent2decc = nn.Linear(
             in_features=latent_dim,
-            out_features=decoder_params["hidden_size"] * decoder_params["num_layers"]
+            out_features=decoder_params["hidden_size"] * decoder_params["num_layers"],
         )
         self.latent2emb = nn.Linear(in_features=latent_dim, out_features=emb_dim)
         self.decoder = nn.LSTM(
@@ -171,14 +171,18 @@ class LitSmilesVAE(pl.LightningModule):
         c_unstructured = self.latent2decc(z)
         h = torch.stack(
             [
-                h_unstructured[:, each_idx : each_idx + self.decoder.hidden_size]
-                for each_idx in range(0, h_unstructured.shape[1], self.decoder.hidden_size)
+                h_unstructured[:, each_idx: each_idx + self.decoder.hidden_size]
+                for each_idx in range(
+                    0, h_unstructured.shape[1], self.decoder.hidden_size
+                )
             ]
         )
         c = torch.stack(
             [
-                c_unstructured[:, each_idx : each_idx + self.decoder.hidden_size]
-                for each_idx in range(0, c_unstructured.shape[1], self.decoder.hidden_size)
+                c_unstructured[:, each_idx: each_idx + self.decoder.hidden_size]
+                for each_idx in range(
+                    0, c_unstructured.shape[1], self.decoder.hidden_size
+                )
             ]
         )
         # ここまで ###############################################
@@ -257,14 +261,11 @@ class LitSmilesVAE(pl.LightningModule):
         success = self.reconstruct(in_seq=in_seq, verbose=False)
         reconstruct_rate = sum(success) / len(success)
         self.log_dict(
-            dictionary={
-                "valid_loss": valid_loss,
-                "success_rate": reconstruct_rate
-            },
+            dictionary={"valid_loss": valid_loss, "success_rate": reconstruct_rate},
             prog_bar=True,
             logger=True,
             on_step=False,
-            on_epoch=True
+            on_epoch=True,
         )
         # self.log("valid_loss", valid_loss, prog_bar=True, on_step=False, on_epoch=True)
         return valid_loss
@@ -279,7 +280,9 @@ class LitSmilesVAE(pl.LightningModule):
             self.train()
             return out
 
-    def reconstruct(self, in_seq, deterministic=True, max_reconstruct=None, verbose=True):
+    def reconstruct(
+        self, in_seq, deterministic=True, max_reconstruct=None, verbose=True
+    ):
         """SMILES系列の集合in_seqを受け取り、SmilesVAEを用いてそれらを再構成できるかのメソッド
 
         Parameters
@@ -309,10 +312,8 @@ class LitSmilesVAE(pl.LightningModule):
         for each_idx, each_seq in enumerate(in_seq):
             truth = self.vocab.seq2smiles(each_seq)[::-1]
             pred = self.vocab.seq2smiles(out_seq[each_idx])
-            success_list.append(truth==pred)
+            success_list.append(truth == pred)
             if verbose:
                 print(f"{truth==pred}\t{truth} --> {pred}")
         self.train()
         return success_list
-
-
