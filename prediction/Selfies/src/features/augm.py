@@ -8,7 +8,7 @@ def rotate_atoms(li, x):
     return li[x % len(li):] + li[: x % len(li)]
 
 
-def generate_selfies(smiles, augmentation=True, kekule=False):
+def generate_selfies(smiles, augmentation=True, kekule=False, poly_flag=False):
     selfies_list = list()
     try:
         mol = Chem.MolFromSmiles(smiles)
@@ -33,6 +33,8 @@ def generate_selfies(smiles, augmentation=True, kekule=False):
                             allBondsExplicit=False,  #
                             allHsExplicit=False,
                         )
+                        if poly_flag:
+                            smiles = smiles.replace("*", "[Xe]")
                         selfies = sf.encoder(smiles)
                     except:
                         selfies = "None"
@@ -67,12 +69,14 @@ def generate_selfies(smiles, augmentation=True, kekule=False):
     return selfies_list
 
 
-def augment_data(smiles_array, prop_array, augmentation=True):
+def augment_data(smiles_array, prop_array, augmentation=True, poly_flag=False):
     selfies_enum = list()
     prop_enum = list()
     smiles_enum_card = list()
     for idx, i_smiles in enumerate(smiles_array.tolist()):
-        enumerated_selfies = generate_selfies(i_smiles, augmentation)
+        enumerated_selfies = generate_selfies(
+            i_smiles, augmentation, poly_flag=poly_flag
+        )
         if "None" not in enumerated_selfies:
             smiles_enum_card.append(len(enumerated_selfies))
             selfies_enum.extend(enumerated_selfies)

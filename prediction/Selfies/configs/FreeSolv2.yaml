@@ -1,0 +1,22 @@
+bayopt_bounds:
+  lstm_units: [3, 10]
+  dense_units: [3, 10]
+  embedding_dim: [3, 10]
+  batch_size: [3, 10]
+  learning_rate: [1e-4, 1e-2]
+
+train:
+  augmentation: true
+  bayopt_on: true
+  bayopt_n_epochs: 30
+  bayopt_n_trials: 50
+  n_epochs: 100
+  tf16: false
+  loss_func: MSE
+  scaling: true
+  seed: 42
+
+dataset:
+  filepath: data/processed/FreeSolv_SAMPL.csv
+  smiles: smiles
+  prop: expt

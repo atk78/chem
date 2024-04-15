@@ -1,20 +1,10 @@
 import os
-import yaml
+import re
 import logging
 
+import yaml
 import numpy as np
 import torch
-
-
-class Tokens:
-    aliphatic_organic = ["B", "C", "N", "O", "S", "P", "F", "Cl", "Br", "I"]
-    aromatic_organic = ["b", "c", "n", "o", "s", "p"]
-    bracket = ["[", "]"]  # includes isotope, symbol, chiral, hcount, charge, class
-    bond = ["-", "=", "#", "$", "/", "\\", "."]
-    lrb = ["%"]  # long ring bonds '%TWODIGITS'
-    terminator = [" "]  # SPACE - start/end of SMILES
-    wildcard = ["*"]
-    oov = ["oov"]  # out-of-vocabulary tokens
 
 
 def get_vocab(save_dir, tokens):
@@ -25,61 +15,18 @@ def get_vocab(save_dir, tokens):
     return vocab
 
 
-def get_tokens(smiles_array, split_l=1, poly_flag=False):
-    tokenized_smiles_list = list()
-    for i_smiles in smiles_array.tolist():
-        tokenized_smiles_tmp = smiles_tokenizer(i_smiles, poly_flag)
-        tokenized_smiles_list.append(
-            [
-                "".join(tokenized_smiles_tmp[i: i + split_l])
-                for i in range(0, len(tokenized_smiles_tmp) - split_l + 1, 1)
-            ]
-        )
-    return tokenized_smiles_list
+def get_tokens(selfies_array):
+    tokenized_selfies_list = list()
+    for i_selfeies in selfies_array.tolist():
+        tokenized_selfies_tmp = selfies_tokenizer(i_selfeies)
+        tokenized_selfies_list.append(tokenized_selfies_tmp)
+    return tokenized_selfies_list
 
 
-def smiles_tokenizer(smiles, poly_flag=False):
-    if poly_flag:
-        Tokens.aliphatic_organic += ["*"]
-    smiles = smiles.replace("", "")  # avoid '' if exists in smiles
-    # '[...]' as single token
-    smiles = smiles.replace(Tokens.bracket[0], " " + Tokens.bracket[0])
-    smiles = smiles.replace(Tokens.bracket[1], Tokens.bracket[1] + " ")
-    # '%TWODIGITS' as single token
-    lrb_print = [
-        smiles[i: i + 3]
-        for i, ichar in enumerate(smiles) if ichar == Tokens.lrb[0]
-    ]
-    if len(lrb_print) != 0:
-        for ichar in lrb_print:
-            smiles = smiles.replace(ichar, " " + ichar + " ")
-    # split SMILES for [...] recognition
-    smiles = smiles.split(" ")
-    # split fragments other than [...]
-    splitted_smiles = list()
-    for ifrag in smiles:
-        ifrag_tag = False
-        for inac in Tokens.bracket + Tokens.lrb:
-            if inac in ifrag:
-                ifrag_tag = True
-                break
-        if ifrag_tag is False:
-            # check for Cl, Br in alphatic branches to not dissociate letters (e.g. Cl -> C, l is prohibited)
-            for iaa in Tokens.aliphatic_organic[7:9]:
-                ifrag = ifrag.replace(iaa, " " + iaa + " ")
-            ifrag_tmp = ifrag.split(" ")
-            for iifrag_tmp in ifrag_tmp:
-                if (
-                    iifrag_tmp != Tokens.aliphatic_organic[7]
-                    and iifrag_tmp != Tokens.aliphatic_organic[8]
-                ):  # not 'Cl' and not 'Br'
-                    splitted_smiles.extend(iifrag_tmp)  # automatic split char by char
-                else:
-                    splitted_smiles.extend([iifrag_tmp])
-        else:
-            splitted_smiles.extend([ifrag])  # keep the original token size
+def selfies_tokenizer(selfies):
+    splitted_selfies = re.findall(pattern=r"\[[^\[\]]*]", string=selfies)
     return (
-        Tokens.terminator + splitted_smiles + Tokens.terminator
+        "[ ]" + splitted_selfies + "[ ]"
     )  # add start + ... + end of SMILES
 
 
@@ -92,37 +39,37 @@ def get_inttotoken(tokens):
 
 
 def extract_vocab(lltokens):
-    return set([itoken for ismiles in lltokens for itoken in ismiles])
+    return set([itoken for iselfies in lltokens for itoken in iselfies])
 
 
 def add_extra_tokens(tokens, vocab_size):
-    tokens.insert(0, "unk")
-    tokens.insert(0, "pad")
+    tokens.insert(0, "[unk]")
+    tokens.insert(0, "[pad]")
     vocab_size = vocab_size + 2
     return tokens, vocab_size
 
 
-def int_vec_encode(tokenized_smiles_list, max_length, tokens):
+def int_vec_encode(tokenized_selfies_list, max_length, tokens):
     token_to_int = get_tokentoint(tokens)
-    int_smiles_array = np.zeros(
-        shape=(len(tokenized_smiles_list), max_length), dtype=np.int32
+    int_selfies_array = np.zeros(
+        shape=(len(tokenized_selfies_list), max_length), dtype=np.int32
     )
-    for idx, ismiles in enumerate(tokenized_smiles_list):
-        ismiles_tmp = list()
-        if len(ismiles) <= max_length:
-            ismiles_tmp = ["pad"] * (max_length - len(ismiles)) + ismiles  # Force output vectors to have same length
+    for idx, iselfies in enumerate(tokenized_selfies_list):
+        iselfies_tmp = list()
+        if len(iselfies) <= max_length:
+            iselfies_tmp = ["[pad]"] * (max_length - len(iselfies)) + iselfies  # Force output vectors to have same length
         else:
-            ismiles_tmp = ismiles[-max_length:]  # longer vectors are truncated (to be changed...)
+            iselfies_tmp = iselfies[-max_length:]  # longer vectors are truncated (to be changed...)
         integer_encoded = [
             token_to_int[itoken] if (itoken in tokens) else token_to_int["unk"]
-            for itoken in ismiles_tmp
+            for itoken in iselfies_tmp
         ]
-        int_smiles_array[idx] = integer_encoded
-    return int_smiles_array
+        int_selfies_array[idx] = integer_encoded
+    return int_selfies_array
 
 
-def convert_to_int_tensor(tokenized_smiles_list, y, max_length, tokens):
-    int_vec_tokens = int_vec_encode(tokenized_smiles_list, max_length, tokens)
+def convert_to_int_tensor(tokenized_selfies_list, y, max_length, tokens):
+    int_vec_tokens = int_vec_encode(tokenized_selfies_list, max_length, tokens)
     tokens_tensor = torch.from_numpy(np.array(int_vec_tokens).astype(np.int32))
     y_tensor = torch.from_numpy(np.array(y, dtype=np.float32))
     return tokens_tensor, y_tensor

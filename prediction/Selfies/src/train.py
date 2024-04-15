@@ -155,17 +155,17 @@ def run(
         logging.info("***No data augmentation has been required.***")
         logging.info("selfies data size:")
     selfies_train, enum_card_train, y_train = augm.augment_data(
-        smiles_train, y_train, augmentation
+        smiles_train, y_train, augmentation, poly_flag
     )
-    tokenized_selfies_train = token.get_tokens(selfies_train, poly_flag=poly_flag)
+    tokenized_selfies_train = token.get_tokens(selfies_train)
     selfies_valid, enum_card_valid, y_valid = augm.augment_data(
-        smiles_valid, y_valid, augmentation
+        smiles_valid, y_valid, augmentation, poly_flag
     )
-    tokenized_selfies_valid = token.get_tokens(selfies_valid, poly_flag=poly_flag)
+    tokenized_selfies_valid = token.get_tokens(selfies_valid)
     selfies_test, enum_card_test, y_test = augm.augment_data(
-        smiles_test, y_test, augmentation
+        smiles_test, y_test, augmentation, poly_flag
     )
-    tokenized_selfies_test = token.get_tokens(selfies_test, poly_flag=poly_flag)
+    tokenized_selfies_test = token.get_tokens(selfies_test)
     logging.info(f"\tTraining set   | {len(y_train)}")
     logging.info(f"\tValidation set | {len(y_valid)}")
     logging.info(f"\tTest set       | {len(y_test)}")

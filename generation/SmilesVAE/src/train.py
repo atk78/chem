@@ -1,11 +1,14 @@
 import os
 import shutil
 import warnings
-import pickle
+import random
+import platform
+import logging
+
 import yaml
 from tqdm import tqdm
-
 import pandas as pd
+import numpy as np
 import torch
 import lightning as L
 from lightning.pytorch.callbacks import ModelCheckpoint, ProgressBar
@@ -13,7 +16,8 @@ from lightning.pytorch.loggers import CSVLogger
 from rdkit import RDLogger
 
 from . import dataset, token, utils, plot
-from .models.SmilesVAE import LightningModel, SmilesVAE
+from .models.SmilesVAE import SmilesVAE
+from .models.lightning_model import LightningModel
 
 
 warnings.simplefilter("ignore")
@@ -63,50 +67,48 @@ class LitProgressBar(ProgressBar):
 def run(
     train_smiles,
     valid_smlies,
-    epochs=10,
-    batch_size=128,
-    lr=1e-3,
-    latent_dim=64,
-    embedding_dim=256,
-    encoder_params={
-        "hidden_size": 512,
-        "num_layers": 1,
-        "dropout": 0,
-        "bidirectional": False
-    },
-    decoder_params={
-        "hidden_size": 512,
-        "num_layers": 1,
-        "dropout": 0,
-        "bidirectional": False
-    },
-    encoder_out_dim_list=[256],
-    output_dir="./reports",
-    n_log_step=50,
-    device="cpu"
+    config_filepath
 ):
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    with open(config_filepath) as yml:
+        config = yaml.load(yml, Loader=yaml.FullLoader)
+    epochs = config["epochs"]
+    batch_size = config["batch_size"]
+    lr = float(config["learning_rate"])
+    latent_dim = config["latent_dim"]
+    embedding_dim = config["embedding_dim"]
+    encoder_params = config["encoder_params"]
+    decoder_params = config["decoder_params"]
+    encoder_out_dim_list = config["encoder_out_dim_list"]
+    output_dir = config["output_dir"]
+    n_log_step = config["n_log_step"]
+    seed = config["seed"]
+    seed_everything(seed)
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.mkdir(output_dir)
     training_dir = os.path.join(output_dir, "training")
-    if os.path.exists(training_dir):
-        shutil.rmtree(training_dir)
-        os.makedirs(training_dir)
-    else:
-        os.makedirs(training_dir)
+    img_dir = os.path.join(output_dir, "images")
+    log_dir = os.path.join(output_dir, "log")
+    os.mkdir(training_dir)
+    os.mkdir(img_dir)
+    os.mkdir(log_dir)
 
-    smiles_vocab = token.SmilesVocabulary()
-    print("Loading training SMILES data.")
-    train_smiles_tensor = smiles_vocab.batch_update(train_smiles)
-    print(f"Data size: {train_smiles_tensor.shape}\n")
-    print("Loading validation SMILES data.")
-    valid_smiles_tensor = smiles_vocab.batch_update(valid_smlies)
-    print(f"Data size: {valid_smiles_tensor.shape}\n")
-    print("Shows the initial molecular SMILES of the training data.")
-    print(smiles_vocab.seq2smiles(train_smiles_tensor[0]))
-    print("Convert to token.")
-    print(
-        smiles_vocab.smiles2seq(
-            smiles_vocab.seq2smiles(train_smiles_tensor[0])
-        )
-    )
+    _, _ = utils.log_setup(log_dir, "training", verbose=True)
+    logging.info(f"OS: {platform.system()}")
+
+    logging.info("Loading training SMILES data.")
+    train_smiles_tensor = token.batch_update(train_smiles)
+    logging.info(f"Data size: {train_smiles_tensor.shape}\n")
+    logging.info("Loading validation SMILES data.")
+    valid_smiles_tensor = token.batch_update(valid_smlies)
+    vocab = token.Token.char_list
+    logging.info(f"Data size: {valid_smiles_tensor.shape}\n")
+    logging.info("Shows the initial molecular SMILES of the training data.")
+    logging.info(token.seq2smiles(train_smiles_tensor[0], vocab))
+    logging.info("Convert to token.")
+    logging.info(token.smiles2seq(token.seq2smiles(train_smiles_tensor[0], vocab), vocab))
+    logging.info(token.Token.char_list)
 
     datamodule = dataset.DataModule(
         train_smiles_tensor, valid_smiles_tensor, batch_size=batch_size
@@ -116,7 +118,7 @@ def run(
     max_len = valid_smiles_tensor.shape[1]
 
     model = LightningModel(
-        vocab=smiles_vocab,
+        vocab=vocab,
         latent_dim=latent_dim,
         embedding_dim=embedding_dim,
         max_len=max_len,
@@ -145,11 +147,11 @@ def run(
     )
 
     trainer.fit(model, datamodule=datamodule)
-    print("Training Finished!!!")
+    logging.info("Training Finished!!!")
 
     model = LightningModel.load_from_checkpoint(
         checkpoint_path=os.path.join(training_dir, "best_weights.ckpt"),
-        vocab=smiles_vocab,
+        vocab=vocab,
         latent_dim=latent_dim,
         embedding_dim=embedding_dim,
         max_len=max_len,
@@ -165,6 +167,7 @@ def run(
     )
 
     parameters = {
+        "vocab": vocab,
         "latent_dim": latent_dim,
         "embedding_dim": embedding_dim,
         "max_len": max_len,
@@ -176,7 +179,6 @@ def run(
         yaml.dump(parameters, f)
 
     model = SmilesVAE(
-        vocab=smiles_vocab,
         device=device,
         **parameters
     )
@@ -187,17 +189,8 @@ def run(
         )
     )
     model = model.to(device)
-
     generated_smiles_list = model.generate(sample_size=1000)
-    # generated_smiles_list = generate(model, sample_size=1000)
-    with open(
-        os.path.join(training_dir, "smiles_vocab.pkl"), mode="wb"
-    ) as f:
-        pickle.dump(smiles_vocab, f)
-    print(f"success rate: {utils.valid_ratio(generated_smiles_list)}")
-    img_dir = os.path.join(output_dir, "images")
-    if not os.path.exists(img_dir):
-        os.makedirs(img_dir)
+    logging.info(f"success rate: {utils.valid_ratio(generated_smiles_list)}")
 
     metrics_df = pd.read_csv(
         os.path.join(training_dir, "version_0/metrics.csv")
@@ -207,3 +200,15 @@ def run(
     reconstruction_rate = metrics_df[["step", "success_rate"]].dropna()
     plot.plot_minibatch_loss(train_loss, valid_loss, img_dir)
     plot.plot_reconstruction_rate(reconstruction_rate, img_dir)
+
+
+def seed_everything(seed=1):
+    random.seed(seed)  # Python標準のrandomモジュールのシードを設定
+    os.environ["PYTHONHASHSEED"] = str(
+        seed
+    )  # ハッシュ生成のためのシードを環境変数に設定
+    np.random.seed(seed)  # NumPyの乱数生成器のシードを設定
+    torch.manual_seed(seed)  # PyTorchの乱数生成器のシードをCPU用に設定
+    torch.cuda.manual_seed(seed)  # PyTorchの乱数生成器のシードをGPU用に設定
+    torch.backends.cudnn.deterministic = True  # PyTorchの畳み込み演算の再現性を確保
+    L.seed_everything(seed, workers=True)

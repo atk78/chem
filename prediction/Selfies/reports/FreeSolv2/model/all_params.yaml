@@ -1,0 +1,86 @@
+bayopt_bounds:
+  batch_size:
+  - 3
+  - 10
+  dense_units:
+  - 3
+  - 10
+  embedding_dim:
+  - 3
+  - 10
+  learning_rate:
+  - 1e-4
+  - 1e-2
+  lstm_units:
+  - 3
+  - 10
+dataset:
+  filepath: data/processed/FreeSolv_SAMPL.csv
+  prop: expt
+  smiles: smiles
+hyper_parameters:
+  model:
+    dense_units: 8
+    embedding_dim: 128
+    lstm_units: 256
+    vocab_size: 44
+  other:
+    batch_size: 16
+    learning_rate: 0.0019513967655934471
+token:
+  max_length: 50
+  vocabulary:
+  - pad
+  - unk
+  - '[P]'
+  - '[=N]'
+  - '[O-1]'
+  - '[S+2]'
+  - '[O]'
+  - '[NH1]'
+  - '[C]'
+  - '[Branch1]'
+  - '[\Cl]'
+  - '[\O]'
+  - '[/C]'
+  - '[=P]'
+  - '[=O]'
+  - '[C@H1]'
+  - '[#N]'
+  - '[Ring1]'
+  - '[F]'
+  - '[Cl]'
+  - '[=C]'
+  - '[C@@]'
+  - '[#C]'
+  - '[=Branch1]'
+  - '[C@@H1]'
+  - '[Ring2]'
+  - '[/Cl]'
+  - ' '
+  - '[/N]'
+  - '[Br]'
+  - '[\C]'
+  - '[=Ring1]'
+  - '[S]'
+  - '[I]'
+  - '[=S]'
+  - '[=Branch2]'
+  - '[=N+1]'
+  - '[N+1]'
+  - '[#Branch1]'
+  - '[#Branch2]'
+  - '[N]'
+  - '[Branch2]'
+  - '[=Ring2]'
+  - '[C@]'
+train:
+  augmentation: true
+  bayopt_n_epochs: 30
+  bayopt_n_trials: 50
+  bayopt_on: true
+  loss_func: MSE
+  n_epochs: 100
+  scaling: true
+  seed: 42
+  tf16: false

@@ -17,10 +17,9 @@ from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import CSVLogger
 import optuna
 
-from .models.LSTMAttention import LightningModel, LSTMAttention
-from .features import token, augm
-from . import utils, plot, dataset
-
+from .models.lightning_model import LightningModel
+from .models.smiles_x import SmilesX
+from . import token, augm, utils, plot, dataset
 
 warnings.simplefilter("ignore")
 
@@ -78,34 +77,39 @@ class LitProgressBar(ProgressBar):
 
 def run(
     config_filepath="",
-    outdir="./reports/",
     n_gpus=1,
-    lstmunits_ref=512,
-    denseunits_ref=512,
-    embedding_ref=512,
-    batch_size_ref=64,
-    lr_ref=1e-3,
 ):
     data_name = os.path.splitext(os.path.basename(config_filepath))[0]
     with open(config_filepath) as yml:
         config = yaml.load(yml, Loader=yaml.FullLoader)
+    if n_gpus is None:
+        n_gpus = 1
 
     bayopt_on = config["train"]["bayopt_on"]
     if bayopt_on:
         bayopt_bounds = config["bayopt_bounds"]
+    else:
+        lstm_units_ref = config["ref_hyperparam"]["lstm_units"]
+        dense_units_ref = config["ref_hyperparam"]["dense_units"]
+        embedding_dim_ref = config["ref_hyperparam"]["embedding_dim"]
+        batch_size_ref = config["ref_hyperparam"]["batch_size"]
+        learning_rate_ref = config["ref_hyperparam"]["learning_rate"]
+
     augmentation = config["train"]["augmentation"]
     bayopt_n_epochs = config["train"]["bayopt_n_epochs"]
     bayopt_n_trials = config["train"]["bayopt_n_trials"]
     n_epochs = config["train"]["n_epochs"]
+    n_early_stopping = config["train"]["n_early_stopping"]
     tf16 = config["train"]["tf16"]
     loss_func = config["train"]["loss_func"]  # MSE or MAE
     seed = config["train"]["seed"]
     scaling = config["train"]["scaling"]
-    filepath = config["dataset"]["filepath"]
-    smiles = config["dataset"]["smiles"]
-    prop = config["dataset"]["prop"]
-    data = pd.read_csv(filepath)
-    data = data[[smiles, prop]]
+    dataset_path = config["dataset"]["dataset_path"]
+    smiles_col = config["dataset"]["smiles_col_name"]
+    prop_col = config["dataset"]["prop_col_name"]
+    outdir = config["dataset"]["output_path"]
+    data = pd.read_csv(dataset_path)
+    data = data[[smiles_col, prop_col]]
     print(data.head())
 
     save_dir = os.path.join(outdir, data_name)
@@ -157,11 +161,15 @@ def run(
     smiles_train, enum_card_train, y_train = augm.augment_data(
         smiles_train, y_train, augmentation
     )
-    tokenized_smiles_train = token.get_tokens(smiles_train, poly_flag=poly_flag)
+    tokenized_smiles_train = token.get_tokens(
+        smiles_train, poly_flag=poly_flag
+    )
     smiles_valid, enum_card_valid, y_valid = augm.augment_data(
         smiles_valid, y_valid, augmentation
     )
-    tokenized_smiles_valid = token.get_tokens(smiles_valid, poly_flag=poly_flag)
+    tokenized_smiles_valid = token.get_tokens(
+        smiles_valid, poly_flag=poly_flag
+    )
     smiles_test, enum_card_test, y_test = augm.augment_data(
         smiles_test, y_test, augmentation
     )
@@ -215,11 +223,11 @@ def run(
     else:
         best_hparams = {
             "vocab_size": vocab_size,
-            "lstm_units": lstmunits_ref,
-            "dense_units": denseunits_ref,
-            "embedding_dim": embedding_ref,
+            "lstm_units": lstm_units_ref,
+            "dense_units": dense_units_ref,
+            "embedding_dim": embedding_dim_ref,
             "batch_size": batch_size_ref,
-            "learning_rate": lr_ref,
+            "learning_rate": learning_rate_ref,
         }
     logging.info("Best Params")
     logging.info(f"LSTM units       |{best_hparams['lstm_units']}")
@@ -257,6 +265,7 @@ def run(
         y_train=y_train,
         y_valid=y_valid,
         n_epochs=n_epochs,
+        n_early_stopping=n_early_stopping,
         n_gpus=n_gpus,
         precision=precision,
         loss_func=loss_func,
@@ -284,7 +293,7 @@ def run(
     logging.info(f"Best val_loss @ Epoch #{np.argmin(valid_loss)}")
     logging.info("***Predictions from the best model.***")
 
-    best_model = LSTMAttention(
+    best_model = SmilesX(
         **config["hyper_parameters"]["model"]
     )
     best_model.load_state_dict(
@@ -462,6 +471,7 @@ def trainer(
     y_train: torch.Tensor,
     y_valid: torch.Tensor,
     n_epochs=100,
+    n_early_stopping=100,
     n_gpus=1,
     precision=32,
     loss_func="MAE",
@@ -489,10 +499,12 @@ def trainer(
         save_top_k=1,
         save_last=False,
     )
+    if n_early_stopping == 0:
+        n_early_stopping = n_epochs
     early_stopping = EarlyStopping(
         monitor="valid_loss",
         mode="min",
-        patience=20
+        patience=n_early_stopping
     )
     trainer = L.Trainer(
         max_epochs=n_epochs,
