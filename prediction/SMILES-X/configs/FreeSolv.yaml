@@ -1,0 +1,31 @@
+bayopt_bounds:
+  lstm_units: [3, 10]
+  dense_units: [3, 10]
+  embedding_dim: [3, 10]
+  batch_size: [3, 10]
+  learning_rate: [1e-4, 1e-2]
+
+train:
+  augmentation: true
+  bayopt_on: true
+  bayopt_n_epochs: 10
+  bayopt_n_trials: 50
+  n_epochs: 100
+  n_early_stopping: 30
+  tf16: false
+  loss_func: MSE
+  scaling: true
+  seed: 42
+
+ref_hyperparam:
+  lstm_units: 512,
+  dense_units: 512,
+  embedding_dim: 512,
+  batch_size: 64,
+  learning_rate: 1e-3
+
+dataset:
+  dataset_path: ./datasets/processed/FreeSolv_SAMPL.csv
+  output_path: ./reports/
+  smiles_col_name: smiles
+  prop_col_name: expt

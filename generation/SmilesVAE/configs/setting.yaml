@@ -15,5 +15,8 @@ decoder_params:
   bidirectional: False
 encoder_out_dim_list: [256]
 output_dir: ./reports/
+training_dataset: ./data/zinc.csv
+smiles_col_name: smiles
+test_size: 0.05
 n_log_step: 50
 seed: 42
