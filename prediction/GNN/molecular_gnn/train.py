@@ -10,17 +10,19 @@ from tqdm import tqdm
 import yaml
 import pandas as pd
 import numpy as np
+import optuna
 import torch
+import torch.nn.functional as F
 import lightning as L
 from lightning.pytorch.callbacks import ModelCheckpoint, ProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import CSVLogger
-import optuna
+from torchmetrics import (
+    MetricCollection, R2Score, MeanAbsoluteError, MeanSquaredError
+)
 
-# from .models.GCN import LightningModel, MolecularGCN
-from .models.GAT import LightningModel, MolecularGAT
-from .features import mol2graph, augm
-from . import utils, plot, dataset
+from .model import MolecularGCN, MolecularGAT
+from . import utils, plot, dataset, mol2graph, augm
 
 
 warnings.simplefilter("ignore")
@@ -77,7 +79,112 @@ class LitProgressBar(ProgressBar):
         self.enabled = False
 
 
-def run(
+class LightningModel(L.LightningModule):
+    def __init__(
+        self,
+        n_features,
+        n_conv_hidden_layer=3,
+        n_dense_hidden_layer=3,
+        graph_dim=64,
+        dense_dim=64,
+        drop_rate=0.1,
+        learning_rate=1e-3,
+        loss_func="MAE",
+        model_type="GAT",
+        *args,
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.save_hyperparameters(logger=True)
+        self.lr = learning_rate
+        if loss_func == "MAE":
+            self.loss_func = F.l1_loss
+            self.train_metrics = MetricCollection(
+                {"train_r2": R2Score(), "train_loss": MeanAbsoluteError()}
+            )
+            self.valid_metrics = MetricCollection(
+                {"valid_r2": R2Score(), "valid_loss": MeanAbsoluteError()}
+            )
+        else:
+            self.loss_func = F.mse_loss
+            self.train_metrics = MetricCollection(
+                {
+                    "train_r2": R2Score(),
+                    "train_loss": MeanSquaredError(squared=True)
+                }
+            )
+            self.valid_metrics = MetricCollection(
+                {
+                    "valid_r2": R2Score(),
+                    "valid_loss": MeanSquaredError(squared=True)
+                }
+            )
+        if model_type == "GAT":
+            self.model = MolecularGAT(
+                n_features,
+                n_conv_hidden_layer,
+                n_dense_hidden_layer,
+                graph_dim, dense_dim,
+                drop_rate
+            )
+        else:
+            self.model = MolecularGCN(
+                n_features,
+                n_conv_hidden_layer,
+                n_dense_hidden_layer,
+                graph_dim,
+                dense_dim,
+                drop_rate
+            )
+
+    def loss(self, y, y_pred):
+        return self.loss_func(y, y_pred)
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
+        t = int(self.trainer.max_epochs * 0.1)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer=optimizer,
+            T_0=self.trainer.max_epochs,
+            T_mult=t if t > 0 else 1
+        )
+        return {"optimizer": optimizer, "lr_scheduler": scheduler}
+
+    def forward(self, X, training=True):
+        # モデルの順伝播
+        return self.model.forward(X, training)
+
+    def training_step(self, batch, batch_idx):
+        # モデルの学習
+        X, y = batch, batch.y
+        output = self.forward(X, training=True)
+        loss = self.loss(output, y)
+        self.train_metrics(output, y)
+        self.log_dict(
+            dictionary=self.train_metrics,
+            on_epoch=True,
+            on_step=False,
+            logger=True,
+            prog_bar=True,
+        )
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        # モデルの学習
+        X, y = batch, batch.y
+        output = self.forward(X, training=False)
+        loss = self.valid_metrics(output, y)
+        self.log_dict(
+            dictionary=self.valid_metrics,
+            on_epoch=True,
+            on_step=False,
+            logger=True,
+            prog_bar=True,
+        )
+        return loss
+
+
+def main(
     config_filepath="",
     outdir="./reports/",
     n_gpus=1,
