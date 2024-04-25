@@ -7,7 +7,7 @@ from torch_geometric.nn import global_add_pool
 class MolecularGCN(nn.Module):
     def __init__(
         self,
-        n_features,
+        n_features: int,
         n_conv_hidden_layer=3,
         n_dense_hidden_layer=3,
         graph_dim=64,
@@ -34,49 +34,40 @@ class MolecularGCN(nn.Module):
         """
         super().__init__()
         self.drop_rate = drop_rate  # ドロップアウトするデータの割合
-        self.graphconv1 = GCNConv(
-            in_channels=n_features, out_channels=graph_dim
-        )  # 最初のグラフ畳み込み層
-        self.bn1 = nn.BatchNorm1d(num_features=graph_dim)
-        self.graphconv_hidden = nn.ModuleList([
-            GCNConv(in_channels=graph_dim, out_channels=graph_dim)
-            for _ in range(n_conv_hidden_layer)
-        ])
-        self.bn_conv_hidden_layer = nn.ModuleList([
-            nn.BatchNorm1d(num_features=graph_dim)
-            for _ in range(n_conv_hidden_layer)
-        ])
-        self.mlp = nn.Linear(
-            in_features=graph_dim, out_features=dense_dim
-        )
-        self.bn2 = nn.BatchNorm1d(num_features=dense_dim)
-        self.dense_hidden = nn.ModuleList([
-            nn.Linear(in_features=dense_dim, out_features=dense_dim)
-            for _ in range(n_dense_hidden_layer)
-        ])
-        self.bn_mlp = nn.ModuleList([
-            nn.BatchNorm1d(num_features=dense_dim)
-            for _ in range(n_dense_hidden_layer)
-        ])
+        self.graph_conv_hidden = nn.Sequential()
+        self.bn_conv_hidden = nn.Sequential()
+        in_dim = n_features
+        for _ in range(n_conv_hidden_layer):
+            self.graph_conv_hidden.append(
+                GCNConv(in_channels=in_dim, out_channels=graph_dim),
+            )
+            self.bn_conv_hidden.append(
+                nn.BatchNorm1d(num_features=graph_dim)
+            )
+            in_dim = graph_dim
+        self.dense_hidden = nn.Sequential()
+        self.bn_hidden = nn.Sequential()
+        in_dim = graph_dim
+        for _ in range(n_dense_hidden_layer):
+            self.dense_hidden.append(
+                nn.Linear(in_features=in_dim, out_features=dense_dim)
+            ),
+            self.bn_hidden.append(nn.BatchNorm1d(num_features=dense_dim))
+            in_dim = dense_dim
         self.dense_out = nn.Linear(dense_dim, 1)
+
 
     def forward(self, data, training=True):
         x, edge_index = data.x, data.edge_index
-        x = F.relu(input=self.graphconv1(x, edge_index))
-        x = self.bn1(x)
-        for graphconv, bn_conv in zip(
-            self.graphconv_hidden, self.bn_conv_hidden_layer
+        for graph_conv, bn_conv in zip(
+            self.graph_conv_hidden, self.bn_conv_hidden
         ):
-            x = graphconv(x, edge_index)
+            x = F.relu(graph_conv(x, edge_index))
             x = bn_conv(x)
         x = global_add_pool(x=x, batch=data.batch)
-        x = F.relu(self.mlp(x))
-        x = self.bn2(x)
-        if self.drop_rate > 0:
-            x = F.dropout(input=x, p=self.drop_rate, training=training)
-        for fc_mlp, bn_mlp in zip(self.dense_hidden, self.bn_mlp):
-            x = F.relu(fc_mlp(x))
-            x = bn_mlp(x)
+        for dense_hidden, bn_hidden in zip(self.dense_hidden, self.bn_hidden):
+            x = F.relu(dense_hidden(x))
+            x = bn_hidden(x)
             if self.drop_rate > 0:
                 x = F.dropout(input=x, p=self.drop_rate, training=training)
         x = self.dense_out(x)
@@ -86,7 +77,7 @@ class MolecularGCN(nn.Module):
 class MolecularGAT(nn.Module):
     def __init__(
         self,
-        n_features,
+        n_features: int,
         n_conv_hidden_layer=3,
         n_dense_hidden_layer=3,
         graph_dim=64,
@@ -113,49 +104,39 @@ class MolecularGAT(nn.Module):
         """
         super().__init__()
         self.drop_rate = drop_rate  # ドロップアウトするデータの割合
-        self.graphconv1 = GATv2Conv(
-            in_channels=n_features, out_channels=graph_dim
-        )  # 最初のグラフ畳み込み層
-        self.bn1 = nn.BatchNorm1d(num_features=graph_dim)
-        self.graphconv_hidden = nn.ModuleList([
-            GATv2Conv(in_channels=graph_dim, out_channels=graph_dim)
-            for _ in range(n_conv_hidden_layer)
-        ])
-        self.bn_conv_hidden_layer = nn.ModuleList([
-            nn.BatchNorm1d(num_features=graph_dim)
-            for _ in range(n_conv_hidden_layer)
-        ])
-        self.mlp = nn.Linear(
-            in_features=graph_dim, out_features=dense_dim
-        )
-        self.bn2 = nn.BatchNorm1d(num_features=dense_dim)
-        self.dense_hidden = nn.ModuleList([
-            nn.Linear(in_features=dense_dim, out_features=dense_dim)
-            for _ in range(n_dense_hidden_layer)
-        ])
-        self.bn_mlp = nn.ModuleList([
-            nn.BatchNorm1d(num_features=dense_dim)
-            for _ in range(n_dense_hidden_layer)
-        ])
+        self.graph_conv_hidden = nn.Sequential()
+        self.bn_conv_hidden = nn.Sequential()
+        in_dim = n_features
+        for _ in range(n_conv_hidden_layer):
+            self.graph_conv_hidden.append(
+                GATv2Conv(in_channels=in_dim, out_channels=graph_dim),
+            )
+            self.bn_conv_hidden.append(
+                nn.BatchNorm1d(num_features=graph_dim)
+            )
+            in_dim = graph_dim
+        self.dense_hidden = nn.Sequential()
+        self.bn_hidden = nn.Sequential()
+        in_dim = graph_dim
+        for _ in range(n_dense_hidden_layer):
+            self.dense_hidden.append(
+                nn.Linear(in_features=in_dim, out_features=dense_dim)
+            ),
+            self.bn_hidden.append(nn.BatchNorm1d(num_features=dense_dim))
+            in_dim = dense_dim
         self.dense_out = nn.Linear(dense_dim, 1)
 
     def forward(self, data, training=True):
         x, edge_index = data.x, data.edge_index
-        x = F.relu(input=self.graphconv1(x, edge_index))
-        x = self.bn1(x)
-        for graphconv, bn_conv in zip(
-            self.graphconv_hidden, self.bn_conv_hidden_layer
+        for graph_conv, bn_conv in zip(
+            self.graph_conv_hidden, self.bn_conv_hidden
         ):
-            x = graphconv(x, edge_index)
+            x = F.relu(graph_conv(x, edge_index))
             x = bn_conv(x)
         x = global_add_pool(x=x, batch=data.batch)
-        x = F.relu(self.mlp(x))
-        x = self.bn2(x)
-        if self.drop_rate > 0:
-            x = F.dropout(input=x, p=self.drop_rate, training=training)
-        for fc_mlp, bn_mlp in zip(self.dense_hidden, self.bn_mlp):
-            x = F.relu(fc_mlp(x))
-            x = bn_mlp(x)
+        for dense_hidden, bn_hidden in zip(self.dense_hidden, self.bn_hidden):
+            x = F.relu(dense_hidden(x))
+            x = bn_hidden(x)
             if self.drop_rate > 0:
                 x = F.dropout(input=x, p=self.drop_rate, training=training)
         x = self.dense_out(x)

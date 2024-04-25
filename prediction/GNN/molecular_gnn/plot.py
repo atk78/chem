@@ -5,7 +5,7 @@ from matplotlib.ticker import MaxNLocator
 import numpy as np
 
 
-config = {
+plot_config = {
     "font.family": "sans-serif",
     "font.size": 12,
     "xtick.direction": "in",  # x軸の目盛りの向き
@@ -21,15 +21,14 @@ config = {
 
 
 def plot_history_loss(
-    train_loss,
-    train_r2,
-    valid_loss,
-    valid_r2,
-    loss_func,
-    img_dir="",
-    data_name=""
+    train_loss: np.ndarray,
+    train_r2: np.ndarray,
+    valid_loss: np.ndarray,
+    valid_r2: np.ndarray,
+    img_dir: str,
+    loss_func: str = "RMSE"
 ):
-    plt.rcParams.update(config)
+    plt.rcParams.update(plot_config)
     fig = plt.figure(figsize=(6, 8))
     ax1 = fig.add_subplot(2, 1, 1)
     ax2 = fig.add_subplot(2, 1, 2, sharex=ax1)
@@ -45,25 +44,24 @@ def plot_history_loss(
     ax2.legend()
     fig.tight_layout()
     fig.savefig(
-        fname=os.path.join(img_dir, f"History_{data_name}.png"),
+        fname=os.path.join(img_dir, "History.png"),
         bbox_inches="tight"
     )
 
 
 def plot_obserbations_vs_predictions(
-    observations,
-    predictions,
-    loss,
-    r2,
-    loss_func,
-    img_dir=".",
-    data_name=""
+    observations: list[np.ndarray],
+    predictions: list[np.ndarray],
+    loss: list[np.ndarray],
+    r2: list[np.ndarray],
+    img_dir: str,
+    loss_func: str = "RMSE",
 ):
     y_train, y_valid, y_test = observations
     y_pred_train, y_pred_valid, y_pred_test = predictions
     loss_train, loss_valid, loss_test = loss
     r2_train, r2_valid, r2_test = r2
-    plt.rcParams.update(config)
+    plt.rcParams.update(plot_config)
     axis_min = min(
         np.min(y_train),
         np.min(y_valid),
@@ -155,6 +153,6 @@ def plot_obserbations_vs_predictions(
     ax4.legend(loc="upper left")
     fig.tight_layout()
     fig.savefig(
-        fname=os.path.join(img_dir, f"Plot_{data_name}.png"),
+        fname=os.path.join(img_dir, "Plot.png"),
         bbox_inches="tight"
     )

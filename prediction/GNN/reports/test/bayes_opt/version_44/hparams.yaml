@@ -1,8 +1,0 @@
-n_features: 45
-n_conv_hidden_layer: 3
-n_dense_hidden_layer: 2
-graph_dim: 128
-dense_dim: 128
-drop_rate: 0.2
-learning_rate: 0.00037921734741614614
-loss_func: MSE

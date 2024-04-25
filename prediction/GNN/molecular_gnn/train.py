@@ -3,17 +3,16 @@ import os
 import platform
 import pickle
 import warnings
-import random
 import logging
 
 from tqdm import tqdm
 import yaml
-import pandas as pd
+import polars as pl
 import numpy as np
 import optuna
 import torch
 import torch.nn.functional as F
-import lightning as L
+from lightning import Trainer, LightningModule, seed_everything
 from lightning.pytorch.callbacks import ModelCheckpoint, ProgressBar
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import CSVLogger
@@ -22,7 +21,8 @@ from torchmetrics import (
 )
 
 from .model import MolecularGCN, MolecularGAT
-from . import utils, plot, dataset, mol2graph, augm
+from . import utils, plot, data, augm, evaluate
+from .mol2graph import Mol2Graph
 
 
 warnings.simplefilter("ignore")
@@ -79,10 +79,10 @@ class LitProgressBar(ProgressBar):
         self.enabled = False
 
 
-class LightningModel(L.LightningModule):
+class LightningModel(LightningModule):
     def __init__(
         self,
-        n_features,
+        n_features: int,
         n_conv_hidden_layer=3,
         n_dense_hidden_layer=3,
         graph_dim=64,
@@ -185,15 +185,13 @@ class LightningModel(L.LightningModule):
 
 
 def main(
-    config_filepath="",
-    outdir="./reports/",
+    config_filepath: str,
     n_gpus=1,
     n_conv_hidden_ref=1,
     n_dense_hidden_ref=1,
     graph_dim_ref=64,
     dense_dim_ref=64,
     drop_rate_ref=0.1,
-    batch_size_ref=64,
     lr_ref=1e-3,
 ):
     data_name = os.path.splitext(os.path.basename(config_filepath))[0]
@@ -207,47 +205,49 @@ def main(
     max_n_augm = config["train"]["max_n_augm"]  # 0のとき拡張したデータをすべて利用
     bayopt_n_epochs = config["train"]["bayopt_n_epochs"]
     bayopt_n_trials = config["train"]["bayopt_n_trials"]
+    batch_size = config["train"]["batch_size"]
     n_epochs = config["train"]["n_epochs"]
     tf16 = config["train"]["tf16"]
     loss_func = config["train"]["loss_func"]  # MSE or MAE
     seed = config["train"]["seed"]
     scaling = config["train"]["scaling"]
     filepath = config["dataset"]["filepath"]
+    output_dir = config["dataset"]["output_dir"]
     smiles = config["dataset"]["smiles"]
     prop = config["dataset"]["prop"]
     computable_atoms = config["computable_atoms"]
     chirality = config["chirality"]
     stereochemistry = config["stereochemistry"]
-    data = pd.read_csv(filepath)
-    data = data[[smiles, prop]]
-    print(data.head())
+    dataset = pl.read_csv(filepath)
+    dataset = dataset.select(smiles, prop)
+    print(dataset.head())
 
-    save_dir = os.path.join(outdir, data_name)
-    if os.path.exists(save_dir):
-        shutil.rmtree(save_dir)
-    os.makedirs(save_dir, exist_ok=True)
-    log_dir = os.path.join(save_dir, "logs")
-    os.mkdir(log_dir)
-    model_dir = os.path.join(save_dir, "model")
-    os.mkdir(model_dir)
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    log_dir = os.path.join(output_dir, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    model_dir = os.path.join(output_dir, "model")
+    os.makedirs(model_dir, exist_ok=True)
 
     logger, logfile = utils.log_setup(log_dir, "training", verbose=True)
     logging.info(f"OS: {platform.system()}")
     seed_everything(seed)
     if tf16:
         # precision = "16-mixed"
-        precision = 16
+        precision = "16"
         logging.info(f"precision is {precision}")
         torch.set_float32_matmul_precision("medium")
     else:
-        precision = 32
+        precision = "32"
         logging.info(f"precision is {precision}")
         torch.set_float32_matmul_precision("high")
     logging.info("***Sampling and splitting of the dataset.***")
+
     smiles_train, smiles_valid, smiles_test, y_train, y_valid, y_test, scaler = (
-        utils.random_split(
-            smiles_input=np.array(data.iloc[:, 0]),
-            y_input=np.array(data.iloc[:, 1]),
+        data.random_split(
+            smiles_input=dataset[smiles].to_numpy(),
+            y_input=dataset[prop].to_numpy(),
             random_state=seed,
             scaling=scaling,
         )
@@ -268,52 +268,40 @@ def main(
     else:
         logging.info("***No data augmentation has been required.***")
         logging.info("SMILES data size:")
+    mol2graph = Mol2Graph(
+        computable_atoms, poly_flag, chirality, stereochemistry
+    )
+    n_node_features, n_edge_features = mol2graph.get_graph_features()
     smiles_train, enum_card_train, y_train = augm.augment_data(
         smiles_train, y_train, augmentation, max_n_augm
     )
     graphs_train = mol2graph.get_graph_vectors(
-        smiles_train,
-        y_train,
-        computable_atoms,
-        poly_flag,
-        chirality,
-        stereochemistry
+        smiles_train, y_train, n_node_features, n_edge_features
     )
     smiles_valid, enum_card_valid, y_valid = augm.augment_data(
-        smiles_valid, y_valid, augmentation
+        smiles_valid, y_valid, augmentation, max_n_augm
     )
     graphs_valid = mol2graph.get_graph_vectors(
-        smiles_valid,
-        y_valid,
-        computable_atoms,
-        poly_flag,
-        chirality,
-        stereochemistry
+        smiles_valid, y_valid, n_node_features, n_edge_features
     )
     smiles_test, enum_card_test, y_test = augm.augment_data(
-        smiles_test, y_test, augmentation
+        smiles_test, y_test, augmentation, max_n_augm
     )
     graphs_test = mol2graph.get_graph_vectors(
-        smiles_test,
-        y_test,
-        computable_atoms,
-        poly_flag,
-        chirality,
-        stereochemistry
+        smiles_test, y_test, n_node_features, n_edge_features
     )
     logging.info(f"\tTraining set   | {len(y_train)}")
     logging.info(f"\tValidation set | {len(y_valid)}")
     logging.info(f"\tTest set       | {len(y_test)}")
     n_features = len(graphs_train[0]["x"][0])
-
+    data_module = data.DataModule(graphs_train, graphs_valid, batch_size)
     if bayopt_on:
         optuna.logging.disable_default_handler()
         best_hparams = bayopt_trainer(
-            save_dir,
+            output_dir,
             n_features,
             bayopt_bounds,
-            graphs_train,
-            graphs_valid,
+            data_module,
             bayopt_n_epochs=bayopt_n_epochs,
             bayopt_n_trials=bayopt_n_trials,
             precision=precision,
@@ -329,7 +317,6 @@ def main(
             "graph_dim": graph_dim_ref,
             "dense_dim": dense_dim_ref,
             "drop_rate": drop_rate_ref,
-            "batch_size": batch_size_ref,
             "learning_rate": lr_ref,
         }
     logging.info("Best Params")
@@ -338,7 +325,6 @@ def main(
     logging.info(f"Graph dim           |{best_hparams['graph_dim']}")
     logging.info(f"Dense dim           |{best_hparams['dense_dim']}")
     logging.info(f"Drop rate           |{best_hparams['drop_rate']}")
-    logging.info(f"Batch size          |{best_hparams['batch_size']}")
     logging.info(f"learning rate       |{best_hparams['learning_rate']}")
     logging.info("")
 
@@ -352,7 +338,6 @@ def main(
             "drop_rate": best_hparams["drop_rate"]
         },
         "other": {
-            "batch_size": best_hparams["batch_size"],
             "learning_rate": best_hparams["learning_rate"]
         }
     }
@@ -361,34 +346,26 @@ def main(
 
     logging.info("***Training of the best model.***")
     trainer(
-        save_dir,
+        output_dir,
         best_hparams,
-        graphs_train=graphs_train,
-        graphs_valid=graphs_valid,
+        data_module,
         n_epochs=n_epochs,
         n_gpus=n_gpus,
         precision=precision,
         loss_func=loss_func,
     )
 
-    metrics_df = pd.read_csv(
-        os.path.join(save_dir, "training/version_0/metrics.csv")
+    metrics_df = pl.read_csv(
+        os.path.join(output_dir, "training/version_0/metrics.csv")
     )
-    train_loss = metrics_df["train_loss"].dropna()
-    valid_loss = metrics_df["valid_loss"].dropna()
-    train_r2 = metrics_df["train_r2"].dropna()
-    valid_r2 = metrics_df["valid_r2"].dropna()
-    img_dir = os.path.join(save_dir, "images")
+    train_loss = metrics_df["train_loss"].drop_nulls().to_numpy()
+    valid_loss = metrics_df["valid_loss"].drop_nulls().to_numpy()
+    train_r2 = metrics_df["train_r2"].drop_nulls().to_numpy()
+    valid_r2 = metrics_df["valid_r2"].drop_nulls().to_numpy()
+    img_dir = os.path.join(output_dir, "images")
     os.mkdir(img_dir)
-    plot.plot_history_loss(
-        train_loss,
-        train_r2,
-        valid_loss,
-        valid_r2,
-        loss_func,
-        img_dir,
-        data_name
-    )
+    plot.plot_history_loss(train_loss, train_r2, valid_loss, valid_r2,
+                           img_dir, loss_func)
 
     logging.info(f"Best val_loss @ Epoch #{np.argmin(valid_loss)}")
     logging.info("***Predictions from the best model.***")
@@ -405,10 +382,9 @@ def main(
             map_location=torch.device("cpu"),
         )
     )
-    utils.model_evaluation(
-        img_dir,
-        data_name,
+    evaluate.model_evaluation(
         model=best_model,
+        img_dir=img_dir,
         graphs_train=graphs_train,
         graphs_valid=graphs_valid,
         graphs_test=graphs_test,
@@ -421,11 +397,10 @@ def main(
 
 
 def bayopt_trainer(
-    save_dir: str,
-    n_features,
+    output_dir: str,
+    n_features: int,
     bayopt_bounds: dict,
-    graphs_train,
-    graphs_valid,
+    data_module: data.DataModule,
     bayopt_n_epochs=10,
     bayopt_n_trials=10,
     precision=32,
@@ -437,16 +412,14 @@ def bayopt_trainer(
 
     Parameters
     ----------
-    save_dir : str
+    output_dir : str
         _description_
     bayopt_bounds : dict
         ハイパーパラメータの探索範囲
     vocab_size : int
         SMILESの最大長
-    graphs_train :
-        訓練に用いるための
-    graphs_valid :
-        検証に用いるための
+    data_module : DataModule
+        訓練に用いるためのデータ
     bayopt_n_epochs : int, optional
         ハイパーパラメータの探索のための学習エポック, by default 10
     bayopt_n_trials : int, optional
@@ -462,12 +435,12 @@ def bayopt_trainer(
 
     Returns
     -------
-    _type_
-        _description_
+    best_hparams : dict
+        ベイズ最適化により決定されたハイパーパラメータ
     """
 
     # Optunaの学習用関数を内部に作成
-    def objective(trial):
+    def objective(trial: optuna.trial.Trial):
         n_conv_hidden_layer = trial.suggest_int(
             "n_conv_hidden_layer",
             bayopt_bounds["n_conv_hidden_layer"][0],
@@ -494,20 +467,13 @@ def bayopt_trainer(
             bayopt_bounds["drop_rate"][1],
             bayopt_bounds["drop_rate"][2]
         )
-        n_batch_size = trial.suggest_int(
-            "n_batch_size",
-            bayopt_bounds["batch_size"][0],
-            bayopt_bounds["batch_size"][1],
-        )
         lr = trial.suggest_float(
             "learning_rate",
             float(bayopt_bounds["learning_rate"][0]),
             float(bayopt_bounds["learning_rate"][1]),
             log=True,
         )
-        data_module = dataset.DataModule(
-            graphs_train, graphs_valid, batch_size=2**n_batch_size
-        )
+
         opt_model = LightningModel(
             n_features,
             n_conv_hidden_layer,
@@ -518,10 +484,10 @@ def bayopt_trainer(
             lr,
             loss_func,
         )
-        logger = CSVLogger(save_dir, name="bayes_opt")
+        logger = CSVLogger(output_dir, name="bayes_opt")
         if platform.system() != "Windows":
             opt_model = torch.compile(opt_model, mode="reduce-overhead")
-        trainer = L.Trainer(
+        trainer = Trainer(
             max_epochs=bayopt_n_epochs,
             precision=precision,
             logger=logger,
@@ -566,27 +532,22 @@ def bayopt_trainer(
         "graph_dim": 2 ** trial.params["n_graph_dim"],
         "dense_dim": 2 ** trial.params["n_dense_dim"],
         "drop_rate": trial.params["drop_rate"],
-        "batch_size": 2 ** trial.params["n_batch_size"],
         "learning_rate": trial.params["learning_rate"],
     }
     return best_hparams
 
 
 def trainer(
-    save_dir,
-    best_hparams,
-    graphs_train,
-    graphs_valid,
+    output_dir: str,
+    best_hparams: dict,
+    data_module: data.DataModule,
     n_epochs=100,
     n_gpus=1,
     precision=32,
     loss_func="MAE",
 ):
-    training_dir = os.path.join(save_dir, "training")
-    data_module = dataset.DataModule(
-        graphs_train, graphs_valid, best_hparams["batch_size"]
-    )
-    logger = CSVLogger(save_dir, name="training")
+    training_dir = os.path.join(output_dir, "training")
+    logger = CSVLogger(output_dir, name="training")
 
     model = LightningModel(
         n_features=best_hparams["n_features"],
@@ -601,7 +562,7 @@ def trainer(
     if platform.system() != "Windows":
         model = torch.compile(model, mode="reduce-overhead")  # linuxの場合
     model_checkpoint = ModelCheckpoint(
-        dirpath=save_dir,
+        dirpath=output_dir,
         filename="training/version_0/best_weights",
         monitor="valid_loss",
         mode="min",
@@ -613,7 +574,7 @@ def trainer(
         mode="min",
         patience=20
     )
-    trainer = L.Trainer(
+    trainer = Trainer(
         max_epochs=n_epochs,
         precision=precision,
         logger=logger,
@@ -626,23 +587,11 @@ def trainer(
     )
     trainer.fit(model, datamodule=data_module)
     model = LightningModel.load_from_checkpoint(
-        os.path.join(save_dir, "training/version_0/best_weights.ckpt"),
-        hparams_file=os.path.join(save_dir, "training/version_0/hparams.yaml"),
+        os.path.join(output_dir, "training/version_0/best_weights.ckpt"),
+        hparams_file=os.path.join(output_dir, "training/version_0/hparams.yaml"),
     )
-    torch.save(
+    torch.output(
         obj=model.model.state_dict(),
-        f=os.path.join(save_dir, "model/best_weights.pth")
+        f=os.path.join(output_dir, "model/best_weights.pth")
     )
     logging.info("Training Finished!!!")
-
-
-def seed_everything(seed=1):
-    random.seed(seed)  # Python標準のrandomモジュールのシードを設定
-    os.environ["PYTHONHASHSEED"] = str(
-        seed
-    )  # ハッシュ生成のためのシードを環境変数に設定
-    np.random.seed(seed)  # NumPyの乱数生成器のシードを設定
-    torch.manual_seed(seed)  # PyTorchの乱数生成器のシードをCPU用に設定
-    torch.cuda.manual_seed(seed)  # PyTorchの乱数生成器のシードをGPU用に設定
-    torch.backends.cudnn.deterministic = True  # PyTorchの畳み込み演算の再現性を確保
-    L.seed_everything(seed, workers=True)

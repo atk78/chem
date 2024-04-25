@@ -4,16 +4,16 @@ bayopt_bounds:
   graph_dim: [3, 7]
   dense_dim: [3, 7]
   drop_rate: [0.0, 0.3, 0.1]
-  batch_size: [5, 10]
   learning_rate: [1e-4, 1e-1]
 
 train:
-  augmentation: true
+  augmentation: false
   max_n_augm: 10
   bayopt_on: true
+  batch_size: 128
   bayopt_n_epochs: 10
-  bayopt_n_trials: 50
-  n_epochs: 200
+  bayopt_n_trials: 5
+  n_epochs: 20
   tf16: false
   loss_func: MSE
   scaling: true
@@ -21,9 +21,10 @@ train:
 
 computable_atoms: [C, O, S, N, Si, F, Cl, Br, I, P, B]
 chirality: false
-stereochemistry: true
+stereochemistry: false
 
 dataset:
-  filepath: data/processed/Tg.csv
+  filepath: ./data/processed/Tg.csv
+  output_dir: ./outputs/Tg
   smiles: smiles
   prop: tg

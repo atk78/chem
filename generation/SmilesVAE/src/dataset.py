@@ -1,18 +1,9 @@
-import multiprocessing
-
 import torch
 from torch.utils.data import DataLoader, Dataset
-import lightning as L
+from lightning import LightningDataModule
 
 
-# CORES = multiprocessing.cpu_count()
 CORES = 2
-
-# def make_dataloaders(tensor, batch_size):
-#     # 入力: 最後の一文字前まで 出力: 最初の二文字目から
-#     dataset = TensorDataset(tensor[:, :-1], tensor[:, 1:])
-#     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-#     return dataloader
 
 
 class Data(Dataset):
@@ -27,7 +18,7 @@ class Data(Dataset):
         return self.in_seq[index], self.out_seq[index]
 
 
-class DataModule(L.LightningDataModule):
+class DataModule(LightningDataModule):
     def __init__(self, train_smiles, valid_smiles, batch_size=1):
         super().__init__()
         self.train_smiles = train_smiles
