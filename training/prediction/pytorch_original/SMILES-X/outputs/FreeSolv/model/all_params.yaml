@@ -1,0 +1,88 @@
+bayopt_bounds:
+  dense_dim:
+  - 3
+  - 10
+  embedding_dim:
+  - 3
+  - 10
+  learning_rate:
+  - 1e-4
+  - 1e-2
+  lstm_dim:
+  - 3
+  - 10
+dataset:
+  dataset_ratio:
+  - 0.8
+  - 0.1
+  - 0.1
+  filepath: ./../data/FreeSolv.csv
+  output_path: ./../outputs/FreeSolv
+  prop_col_name:
+  - expt
+  smiles_col_name: smiles
+hyper_parameters:
+  model:
+    dense_dim: 128
+    embedding_dim: 1024
+    lstm_dim: 1024
+    num_of_outputs: 1
+    vocab_size: 35
+  other:
+    learning_rate: 0.007568292060167619
+ref_hyperparam:
+  dense_dim: 512,
+  embedding_dim: 512,
+  learning_rate: 1e-3
+  lstm_dim: 512,
+token:
+  max_length: 52
+  vocabulary:
+  - pad
+  - unk
+  - )
+  - '-'
+  - '[S+2]'
+  - '[N+]'
+  - '[C@H]'
+  - N
+  - O
+  - I
+  - P
+  - n
+  - Cl
+  - '2'
+  - ' '
+  - C
+  - F
+  - (
+  - c
+  - s
+  - '[nH]'
+  - '[C@@]'
+  - '[C@@H]'
+  - Br
+  - \
+  - '4'
+  - '[C@]'
+  - '1'
+  - '5'
+  - '[O-]'
+  - /
+  - '='
+  - S
+  - '3'
+  - '#'
+train:
+  augmentation: true
+  batch_size: 16
+  bayopt_n_epochs: 20
+  bayopt_n_trials: 30
+  bayopt_on: true
+  early_stopping_patience: 30
+  kfold_n_splits: 2
+  n_epochs: 100
+  scaling: true
+  seed: 42
+  tf16: true
+  validation_method: holdout

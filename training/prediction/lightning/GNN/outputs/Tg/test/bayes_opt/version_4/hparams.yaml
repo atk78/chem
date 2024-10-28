@@ -1,0 +1,9 @@
+n_features: 45
+n_conv_hidden_layer: 5
+n_dense_hidden_layer: 5
+graph_dim: 8
+dense_dim: 8
+drop_rate: 0.0
+learning_rate: 0.04309506204261084
+loss_func: MSE
+model_type: GAT

@@ -1,0 +1,22 @@
+epochs: 1
+batch_size: 128
+learning_rate: 1e-3
+latent_dim: 64
+embedding_dim: 256
+encoder_params:
+  hidden_size: 512
+  num_layers: 1
+  dropout: 0
+  bidirectional: False
+decoder_params:
+  hidden_size: 512
+  num_layers: 1
+  dropout: 0
+  bidirectional: False
+encoder_out_dim_list: [256]
+output_dir: ./outputs/
+training_dataset: ./data/zinc.csv
+smiles_col_name: smiles
+test_size: 0.05
+n_log_step: 50
+seed: 42

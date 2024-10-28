@@ -1,0 +1,36 @@
+2024-03-22 20:49:58 | INFO |    OS: Windows
+2024-03-22 20:49:58 | INFO |    precision is 32
+2024-03-22 20:49:58 | INFO |    ***Sampling and splitting of the dataset.***
+2024-03-22 20:49:58 | INFO |    Train/valid/test splits:0.80/0.10/0.10
+2024-03-22 20:49:58 | INFO |    Setup Polymer Tokens.
+2024-03-22 20:49:58 | INFO |    ***Data augmentation is True.***
+2024-03-22 20:49:58 | INFO |    Augmented SMILES data size:
+2024-03-22 20:50:05 | INFO |    	Training set   | 35754
+2024-03-22 20:50:05 | INFO |    	Validation set | 4693
+2024-03-22 20:50:05 | INFO |    	Test set       | 4213
+2024-03-22 20:50:05 | INFO |    Number of tokens only present in a training set: 38
+2024-03-22 20:50:05 | INFO |    Number of tokens only present in a validation set: 32
+2024-03-22 20:50:05 | INFO |    Is the validation set a subset of the training set: True
+2024-03-22 20:50:05 | INFO |    What are the tokens by which they differ: set()
+2024-03-22 20:50:05 | INFO |    Number of tokens only present in a test set: 38
+2024-03-22 20:50:05 | INFO |    Is the test set a subset of the training set: False
+2024-03-22 20:50:05 | INFO |    What are the tokens by which they differ: {'%13', '%11', '%12'}
+2024-03-22 20:50:05 | INFO |    Is the test set a subset of the validation set: False
+2024-03-22 20:50:05 | INFO |    What are the tokens by which they differ: {'%13', 'I', '[N+]', '[O-]', '%11', '%12'}
+2024-03-22 20:50:05 | INFO |    Full vocabulary: ['7', 's', 'Cl', '\\', '[SH]', 'B', 'c', 'P', '1', '[O-]', 'S', '*', '=', '%13', 'o', 'I', '[N+]', '[nH]', '9', '(', 'F', '-', 'n', ' ', '8', '/', '[N-]', '%11', 'N', '#', ')', '3', '%10', 'C', '4', '2', '6', '%12', 'O', '5', 'Br']
+2024-03-22 20:50:05 | INFO |    Of size: 41
+2024-03-22 20:50:05 | INFO |    Maximum length of tokenized SMILES: 179 tokens(termination spaces included)
+2024-03-22 20:51:43 | INFO |    Trial 0 finished with value: 0.019207457080483437 and parameters: {'n_lstm_units': 5, 'n_dense_units': 10, 'n_embedding_dim': 8, 'n_batch_size': 5, 'learning_rate': 4.207988669606632e-05}. Best is trial 0 with value: 0.019207457080483437 and R2: 0.7633084654808044.
+2024-03-22 20:52:39 | INFO |    Trial 1 finished with value: 0.022509852424263954 and parameters: {'n_lstm_units': 4, 'n_dense_units': 3, 'n_embedding_dim': 9, 'n_batch_size': 6, 'learning_rate': 0.006796578090758156}. Best is trial 0 with value: 0.019207457080483437 and R2: 0.7633084654808044.
+2024-03-22 20:55:13 | INFO |    Trial 2 finished with value: 0.020162314176559448 and parameters: {'n_lstm_units': 3, 'n_dense_units': 10, 'n_embedding_dim': 9, 'n_batch_size': 4, 'learning_rate': 5.3370327626039544e-05}. Best is trial 0 with value: 0.019207457080483437 and R2: 0.7633084654808044.
+2024-03-22 20:56:40 | INFO |    Trial 3 finished with value: 0.01850815676152706 and parameters: {'n_lstm_units': 4, 'n_dense_units': 5, 'n_embedding_dim': 7, 'n_batch_size': 5, 'learning_rate': 0.0001461896279370495}. Best is trial 3 with value: 0.01850815676152706 and R2: 0.7719258666038513.
+2024-03-22 20:59:33 | INFO |    Trial 4 finished with value: 0.016409358009696007 and parameters: {'n_lstm_units': 7, 'n_dense_units': 4, 'n_embedding_dim': 5, 'n_batch_size': 4, 'learning_rate': 0.0006672367170464204}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.
+2024-03-22 21:03:42 | INFO |    Trial 5 finished with value: 0.019201073795557022 and parameters: {'n_lstm_units': 9, 'n_dense_units': 4, 'n_embedding_dim': 7, 'n_batch_size': 5, 'learning_rate': 1.5339162591163613e-05}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.
+2024-03-22 21:04:41 | INFO |    Trial 6 finished with value: 0.024705927819013596 and parameters: {'n_lstm_units': 7, 'n_dense_units': 4, 'n_embedding_dim': 3, 'n_batch_size': 7, 'learning_rate': 0.07286653737491042}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.
+2024-03-22 21:07:28 | INFO |    Trial 7 finished with value: 0.018249711021780968 and parameters: {'n_lstm_units': 9, 'n_dense_units': 5, 'n_embedding_dim': 3, 'n_batch_size': 6, 'learning_rate': 0.00057624872164786}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.
+2024-03-22 21:07:54 | INFO |    Trial 8 finished with value: 0.03204216808080673 and parameters: {'n_lstm_units': 3, 'n_dense_units': 6, 'n_embedding_dim': 3, 'n_batch_size': 7, 'learning_rate': 0.00010842262717330161}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.
+2024-03-22 21:11:17 | INFO |    Trial 9 finished with value: 0.017138544470071793 and parameters: {'n_lstm_units': 8, 'n_dense_units': 5, 'n_embedding_dim': 7, 'n_batch_size': 5, 'learning_rate': 5.4880470007660426e-05}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.
+2024-03-22 21:21:08 | INFO |    Trial 10 finished with value: 0.0166078619658947 and parameters: {'n_lstm_units': 10, 'n_dense_units': 9, 'n_embedding_dim': 10, 'n_batch_size': 7, 'learning_rate': 0.002463768595899745}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.
+2024-03-22 21:59:43 | INFO |    Trial 11 finished with value: 0.016616372391581535 and parameters: {'n_lstm_units': 10, 'n_dense_units': 3, 'n_embedding_dim': 4, 'n_batch_size': 3, 'learning_rate': 0.0002001342062287998}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.
+2024-03-22 22:02:21 | INFO |    Trial 12 finished with value: 0.016855774447321892 and parameters: {'n_lstm_units': 6, 'n_dense_units': 5, 'n_embedding_dim': 9, 'n_batch_size': 4, 'learning_rate': 0.000132965214572995}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.
+2024-03-22 22:07:54 | INFO |    Trial 13 finished with value: 0.020090946927666664 and parameters: {'n_lstm_units': 7, 'n_dense_units': 4, 'n_embedding_dim': 9, 'n_batch_size': 3, 'learning_rate': 0.08862326508576249}. Best is trial 4 with value: 0.016409358009696007 and R2: 0.7971253395080566.

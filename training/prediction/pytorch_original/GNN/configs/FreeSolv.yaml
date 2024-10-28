@@ -1,0 +1,32 @@
+bayopt_bounds:
+  n_conv_hidden_layer: [1, 5]
+  n_dense_hidden_layer: [1, 5]
+  graph_dim: [3, 7]
+  dense_dim: [3, 7]
+  drop_rate: [0.0, 0.3, 0.1]
+  learning_rate: [1e-4, 1e-1]
+
+train:
+  validation_method: kfold  # kfold or holdout
+  kfold_n_splits: 2
+  bayopt_on: true
+  batch_size: 16
+  bayopt_n_epochs: 20
+  bayopt_n_trials: 50
+  n_epochs: 2000
+  early_stopping_patience: 500
+  tf16: true
+  scaling: true
+  seed: 42
+
+computable_atoms: [C, N, O, S, F, Cl, Br, I]
+chirality: false
+stereochemistry: false
+gnn_type: GAT
+
+dataset:
+  filepath: ./../data/FreeSolv.csv
+  output_dir: ./../outputs/FreeSolv
+  smiles_col_name: smiles
+  prop_col_name: [expt]
+  dataset_ratio: [0.8, 0.1, 0.1]  # [train, valid, test]

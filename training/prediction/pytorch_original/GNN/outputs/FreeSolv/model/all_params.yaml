@@ -1,0 +1,66 @@
+bayopt_bounds:
+  dense_dim:
+  - 3
+  - 7
+  drop_rate:
+  - 0.0
+  - 0.3
+  - 0.1
+  graph_dim:
+  - 3
+  - 7
+  learning_rate:
+  - 1e-4
+  - 1e-1
+  n_conv_hidden_layer:
+  - 1
+  - 5
+  n_dense_hidden_layer:
+  - 1
+  - 5
+chirality: false
+computable_atoms:
+- C
+- N
+- O
+- S
+- F
+- Cl
+- Br
+- I
+dataset:
+  dataset_ratio:
+  - 0.8
+  - 0.1
+  - 0.1
+  filepath: ./../data/FreeSolv.csv
+  output_dir: ./../outputs/FreeSolv
+  prop_col_name:
+  - expt
+  smiles_col_name: smiles
+gnn_type: GAT
+hyper_parameters:
+  model:
+    dense_dim: 8
+    drop_rate: 0.0
+    gnn_type: GAT
+    graph_dim: 64
+    n_conv_hidden_layer: 1
+    n_dense_hidden_layer: 1
+    n_features: 42
+    num_of_outputs: 1
+  other:
+    learning_rate: 0.006596099207886099
+stereochemistry: false
+train:
+  batch_size: 16
+  bayopt_n_epochs: 20
+  bayopt_n_trials: 50
+  bayopt_on: true
+  early_stopping_patience: 500
+  kfold_n_splits: 2
+  n_epochs: 2000
+  scaling: true
+  seed: 42
+  tf16: true
+  validation_method: kfold

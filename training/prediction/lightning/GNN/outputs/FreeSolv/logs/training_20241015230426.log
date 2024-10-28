@@ -1,0 +1,10 @@
+2024-10-15 23:04:26 | INFO |    OS: Windows
+2024-10-15 23:04:26 | INFO |    ***Sampling and splitting of the dataset.***
+2024-10-15 23:04:26 | INFO |    Train/valid/test splits:0.80/0.10/0.10
+2024-10-15 23:04:26 | INFO |    Scailing output.
+2024-10-15 23:04:26 | INFO |    Setup Molecule Tokens.
+2024-10-15 23:04:26 | INFO |    ***No data augmentation has been required.***
+2024-10-15 23:04:26 | INFO |    SMILES data size:
+2024-10-15 23:04:26 | INFO |    	Training set   | 513
+2024-10-15 23:04:26 | INFO |    	Validation set | 64
+2024-10-15 23:04:26 | INFO |    	Test set       | 65

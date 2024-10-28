@@ -1,0 +1,32 @@
+bayopt_bounds:
+  lstm_dim: [3, 10]
+  dense_dim: [3, 10]
+  embedding_dim: [3, 10]
+  learning_rate: [1e-4, 1e-2]
+
+train:
+  validation_method: holdout
+  kfold_n_splits: 2
+  augmentation: true
+  batch_size: 16
+  bayopt_on: true
+  bayopt_n_epochs: 20
+  bayopt_n_trials: 30
+  n_epochs: 100
+  early_stopping_patience: 30
+  tf16: true
+  scaling: true
+  seed: 42
+
+ref_hyperparam:
+  lstm_dim: 512,
+  dense_dim: 512,
+  embedding_dim: 512,
+  learning_rate: 1e-3
+
+dataset:
+  filepath: ./../data/FreeSolv.csv
+  output_path: ./../outputs/FreeSolv
+  smiles_col_name: smiles
+  prop_col_name: [expt]
+  dataset_ratio: [0.8, 0.1, 0.1]  # [train, valid, test]

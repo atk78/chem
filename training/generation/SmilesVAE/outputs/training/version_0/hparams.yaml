@@ -1,0 +1,124 @@
+decoder_params:
+  bidirectional: false
+  dropout: 0
+  hidden_size: 512
+  num_layers: 1
+device: !!python/object/apply:torch.device
+- cuda
+embedding_dim: 256
+encoder_out_dim_list:
+- 256
+encoder_params:
+  bidirectional: false
+  dropout: 0
+  hidden_size: 512
+  num_layers: 1
+latent_dim: 64
+learning_rate: 0.001
+max_len: 104
+vocab:
+- pad
+- sos
+- eos
+- '[O+]'
+- '[O]'
+- '[OH+]'
+- '[CH]'
+- (
+- '3'
+- '[Se]'
+- '[F+]'
+- '[NH-]'
+- c
+- '%12'
+- '[Br+2]'
+- '[P+]'
+- '9'
+- B
+- '1'
+- '5'
+- '[CH2+]'
+- '[Se-]'
+- '%10'
+- '[PH]'
+- '[b-]'
+- '[SiH]'
+- '[SH-]'
+- '[H]'
+- '[nH+]'
+- '[I+3]'
+- '[I-]'
+- '[SeH2]'
+- n
+- '[SiH-]'
+- '[Cl+2]'
+- '[nH]'
+- '[BH-]'
+- '[C+]'
+- '[NH3+]'
+- s
+- '2'
+- '[Br-]'
+- '8'
+- '[cH+]'
+- '[I+]'
+- '[SeH]'
+- '[N+]'
+- '[B-]'
+- '[NH+]'
+- '[PH2+]'
+- I
+- '[SH]'
+- '[SiH2]'
+- '%11'
+- )
+- '[CH-]'
+- P
+- '[S+]'
+- '[P-]'
+- '[CH2]'
+- '[Cl+3]'
+- F
+- '#'
+- '[se]'
+- '[IH2]'
+- '[cH-]'
+- '[N-]'
+- '[SH+]'
+- '[NH2+]'
+- '[s+]'
+- '='
+- o
+- '[BH3-]'
+- '[CH+]'
+- b
+- '[S-]'
+- '[C-]'
+- '7'
+- '[Cl-]'
+- N
+- '[c+]'
+- '[Se+]'
+- '[I+2]'
+- '-'
+- '[n+]'
+- Br
+- '[B]'
+- O
+- '[O-]'
+- p
+- '6'
+- '[Cl+]'
+- '[o+]'
+- S
+- '[c-]'
+- '[BH2-]'
+- '4'
+- C
+- '[F-]'
+- '[n-]'
+- '[N]'
+- '[se+]'
+- '[Si]'
+- Cl
+- '[Si-]'

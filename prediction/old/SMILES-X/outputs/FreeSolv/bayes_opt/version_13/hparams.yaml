@@ -1,7 +1,0 @@
-vocab_size: 35
-lstm_units: 1024
-dense_units: 1024
-embedding_dim: 128
-learning_rate: 0.0069782812651260325
-return_proba: false
-loss_func: MSE
