@@ -41,24 +41,24 @@ dataset:
 gnn_type: GAT
 hyper_parameters:
   model:
-    dense_dim: 8
-    drop_rate: 0.0
+    dense_dim: 128
+    drop_rate: 0.2
     gnn_type: GAT
-    graph_dim: 64
-    n_conv_hidden_layer: 1
+    graph_dim: 32
+    n_conv_hidden_layer: 2
     n_dense_hidden_layer: 1
     n_features: 42
     num_of_outputs: 1
   other:
-    learning_rate: 0.006596099207886099
+    learning_rate: 0.03576102963485507
 stereochemistry: false
 train:
-  batch_size: 16
+  batch_size: 32
   bayopt_n_epochs: 20
   bayopt_n_trials: 50
   bayopt_on: true
-  early_stopping_patience: 500
-  kfold_n_splits: 2
+  early_stopping_patience: 1000
+  kfold_n_splits: 3
   n_epochs: 2000
   scaling: true
   seed: 42

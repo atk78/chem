@@ -23,13 +23,13 @@ dataset:
   smiles_col_name: smiles
 hyper_parameters:
   model:
-    dense_dim: 128
-    embedding_dim: 1024
-    lstm_dim: 1024
+    dense_dim: 256
+    embedding_dim: 512
+    lstm_dim: 512
     num_of_outputs: 1
     vocab_size: 35
   other:
-    learning_rate: 0.007568292060167619
+    learning_rate: 0.007234279845665418
 ref_hyperparam:
   dense_dim: 512,
   embedding_dim: 512,
@@ -40,49 +40,49 @@ token:
   vocabulary:
   - pad
   - unk
-  - )
-  - '-'
-  - '[S+2]'
-  - '[N+]'
+  - '5'
+  - '[C@]'
+  - ' '
+  - '[C@@]'
   - '[C@H]'
-  - N
   - O
-  - I
-  - P
+  - (
+  - '2'
+  - c
   - n
   - Cl
-  - '2'
-  - ' '
-  - C
-  - F
-  - (
-  - c
-  - s
-  - '[nH]'
-  - '[C@@]'
-  - '[C@@H]'
-  - Br
-  - \
-  - '4'
-  - '[C@]'
-  - '1'
-  - '5'
-  - '[O-]'
   - /
+  - '[S+2]'
+  - '[C@@H]'
+  - N
   - '='
   - S
+  - Br
   - '3'
+  - I
+  - '1'
+  - P
+  - s
+  - '4'
+  - '-'
+  - \
+  - '[nH]'
   - '#'
+  - )
+  - F
+  - '[O-]'
+  - '[N+]'
+  - C
 train:
   augmentation: true
-  batch_size: 16
+  batch_size: 64
   bayopt_n_epochs: 20
   bayopt_n_trials: 30
   bayopt_on: true
-  early_stopping_patience: 30
-  kfold_n_splits: 2
-  n_epochs: 100
+  early_stopping_patience: 200
+  kfold_n_splits: 3
+  n_epochs: 500
   scaling: true
   seed: 42
   tf16: true
-  validation_method: holdout
+  validation_method: kfold

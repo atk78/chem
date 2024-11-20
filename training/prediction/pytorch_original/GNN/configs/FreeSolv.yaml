@@ -8,13 +8,13 @@ bayopt_bounds:
 
 train:
   validation_method: kfold  # kfold or holdout
-  kfold_n_splits: 2
+  kfold_n_splits: 3
   bayopt_on: true
-  batch_size: 16
+  batch_size: 32
   bayopt_n_epochs: 20
   bayopt_n_trials: 50
   n_epochs: 2000
-  early_stopping_patience: 500
+  early_stopping_patience: 1000
   tf16: true
   scaling: true
   seed: 42

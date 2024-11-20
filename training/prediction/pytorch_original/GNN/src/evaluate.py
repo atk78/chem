@@ -1,4 +1,5 @@
 from logging import Logger
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -17,11 +18,13 @@ np.set_printoptions(precision=3)
 def model_evaluation(
     model: MolecularGNN,
     logger: Logger,
-    img_dir: str,
+    output_dir: Path,
     graph_data: GraphData,
     device="cpu",
 ):
-
+    img_dir = output_dir.joinpath("images")
+    img_dir.mkdir(exist_ok=True)
+    model_dir = output_dir.joinpath("model")
     result = dict()
     for phase, graph_dataset in graph_data.graph_datasets.items():
         dataloader = DataLoader(
@@ -30,7 +33,9 @@ def model_evaluation(
             shuffle=False,
             drop_last=False
         )
-        result[phase] = compute_metrics(model, dataloader, graph_data.scaler, device)
+        result[phase] = compute_metrics(
+            model, model_dir, dataloader, graph_data.scaler, device
+        )
         logger.info(f"For the {phase} set:")
         logger.info(
             f"MAE: {result[phase]['MAE']:.4f} RMSE: {result[phase]['RMSE']:.4f} R^2: {result[phase]['R2']:.4f}"
@@ -41,18 +46,31 @@ def model_evaluation(
 
 def compute_metrics(
     model: MolecularGNN,
+    output_dir: Path,
     dataloader: DataLoader,
     scaler: RobustScaler | None = None,
     device="cpu",
 ):
+    pth_path_list = list(output_dir.glob("*.pth"))
     y_list, y_pred_list = [], []
-    model.eval()
+
     for dataset in dataloader:
         dataset = dataset.to(device)
         y = dataset.y.cpu().detach().numpy()
-        with torch.no_grad():
-            y_pred = model.forward(dataset)
-        y_pred = y_pred.cpu().detach().numpy()
+        y_pred = np.zeros_like(y)
+        for i, pth_path in enumerate(pth_path_list):
+            model.load_state_dict(torch.load(pth_path))
+            model = model.to(device)
+            model.eval()
+            with torch.no_grad():
+                y_pred_tmp = model.forward(dataset)
+            y_pred_tmp = y_pred_tmp.cpu().detach().numpy()
+            if i == 0:
+                y_pred = y_pred_tmp.copy()
+            else:
+                y_pred = np.concatenate([y_pred, y_pred_tmp], axis=1)
+        if len(pth_path_list) != 1:
+            y_pred = y_pred.mean(axis=1).reshape(-1, 1)
         if scaler is not None:
             y = scaler.inverse_transform(y)
             y_pred = scaler.inverse_transform(y_pred)

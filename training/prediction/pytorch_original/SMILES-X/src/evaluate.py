@@ -1,4 +1,5 @@
 from logging import Logger
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -17,11 +18,13 @@ np.set_printoptions(precision=3)
 def model_evaluation(
     model: SmilesX,
     logger: Logger,
-    img_dir: str,
+    output_dir: Path,
     smilesX_data: SmilesXData,
     device="cpu",
 ):
-
+    img_dir = output_dir.joinpath("images")
+    img_dir.mkdir()
+    model_dir = output_dir.joinpath("model")
     result = dict()
     for phase, dataset in smilesX_data.tensor_datasets.items():
         dataloader = DataLoader(
@@ -32,6 +35,7 @@ def model_evaluation(
         )
         result[phase] = compute_metrics(
             model,
+            model_dir,
             dataloader,
             smilesX_data.enum_cards[phase],
             smilesX_data.scaler,
@@ -46,19 +50,30 @@ def model_evaluation(
 
 def compute_metrics(
     model: SmilesX,
+    model_dir: Path,
     dataloader: DataLoader,
     enum_cards: list[int],
     scaler: RobustScaler | None = None,
     device="cpu",
 ):
+    pth_path_list = list(model_dir.glob("*.pth"))
     y_list, y_pred_list = [], []
-    model.eval()
     for X, y in dataloader:
         X = X.to(device)
         y = y.cpu().detach().numpy()
-        with torch.no_grad():
-            y_pred = model.forward(X)
-        y_pred = y_pred.cpu().detach().numpy()
+        for i, pth_path in enumerate(pth_path_list):
+            model.load_state_dict(torch.load(pth_path))
+            model = model.to(device)
+            model.eval()
+            with torch.no_grad():
+                y_pred_tmp = model.forward(X)
+            y_pred_tmp = y_pred_tmp.cpu().detach().numpy()
+            if i == 0:
+                y_pred = y_pred_tmp.copy()
+            else:
+                y_pred = np.concatenate([y_pred, y_pred_tmp], axis=1)
+        if len(pth_path_list) != 1:
+            y_pred = y_pred.mean(axis=1).reshape(-1, 1)
         if scaler is not None:
             y = scaler.inverse_transform(y)
             y_pred = scaler.inverse_transform(y_pred)

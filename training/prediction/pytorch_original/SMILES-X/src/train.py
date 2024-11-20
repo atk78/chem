@@ -12,12 +12,11 @@ import polars as pl
 import numpy as np
 import optuna
 import torch
-import torch.nn.functional as F
-import torch.optim as optim
 
 from src.model import SmilesX
+from src.data import SmilesXData
 from src.trainer import HoldOutTrainer, CrossValidationTrainer, EarlyStopping
-from src import token, utils, data, evaluate
+from src import token, utils, evaluate
 
 warnings.simplefilter("ignore")
 
@@ -30,7 +29,7 @@ class BayOptLoss:
 
 def seed_everything(seed: int):
     random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -43,7 +42,7 @@ def bayopt_training(
     logger: Logger,
     vocab_size: int,
     bayopt_bounds: dict,
-    smilesX_data: data.SmilesXData,
+    smilesX_data: SmilesXData,
     num_of_outputs=1,
     bayopt_n_epochs=10,
     bayopt_n_trials=10,
@@ -72,16 +71,15 @@ def bayopt_training(
             trial,
             num_of_outputs
         )
-        criterion = F.mse_loss
-        optimizer = optim.AdamW(opt_model.parameters(), lr=lr)
+        # criterion = F.mse_loss
+        # optimizer = optim.AdamW(opt_model.parameters(), lr=lr)
         trial_path = bayopt_dir.joinpath(f"trial_{trial.number}")
         trial_path.mkdir(exist_ok=True)
         if smilesX_data.validation_method == "holdout":
             trainer = HoldOutTrainer(
                 smilesX_data,
                 trial_path,
-                criterion,
-                optimizer,
+                learning_rate=lr,
                 scheduler=None,
                 n_epochs=bayopt_n_epochs,
                 early_stopping=None,
@@ -91,14 +89,13 @@ def bayopt_training(
             trainer = CrossValidationTrainer(
                 smilesX_data,
                 trial_path,
-                criterion,
-                optimizer,
+                learning_rate=lr,
                 scheduler=None,
                 n_epochs=bayopt_n_epochs,
                 early_stopping=None,
                 device=device,
             )
-        _opted_model = trainer.fit(opt_model)
+        trainer.fit(opt_model)
         if BayOptLoss.loss is None:
             BayOptLoss.loss = trainer.loss
         else:
@@ -163,29 +160,20 @@ def make_opt_model(
 
 
 def training_model(
+    training_model: SmilesX,
     output_dir: Path,
-    best_hparams: dict,
-    smilesX_data: data.SmilesXData,
+    smilesX_data: SmilesXData,
+    learning_rate: float,
     n_epochs=100,
     early_stopping_patience=0,
     device="cpu",
 ):
     training_dir = output_dir.joinpath("training")
     training_dir.mkdir()
-    training_model = SmilesX(
-        vocab_size=best_hparams["vocab_size"],
-        lstm_dim=best_hparams["lstm_dim"],
-        dense_dim=best_hparams["dense_dim"],
-        embedding_dim=best_hparams["embedding_dim"],
-        num_of_outputs=best_hparams["num_of_outputs"]
-    )
-    lr = best_hparams["learning_rate"]
-    criterion = F.mse_loss
-    optimizer = optim.AdamW(training_model.parameters(), lr=lr)
     if early_stopping_patience > 0:
         early_stopping = EarlyStopping(
             early_stopping_patience,
-            training_dir.joinpath("model.pth"),
+            output_dir.joinpath("model"),
         )
     else:
         early_stopping = None
@@ -193,8 +181,7 @@ def training_model(
         trainer = HoldOutTrainer(
             smilesX_data,
             training_dir,
-            criterion,
-            optimizer,
+            learning_rate,
             scheduler=None,
             n_epochs=n_epochs,
             early_stopping=early_stopping,
@@ -204,20 +191,16 @@ def training_model(
         trainer = CrossValidationTrainer(
             smilesX_data,
             training_dir,
-            criterion,
-            optimizer,
+            learning_rate,
             scheduler=None,
             n_epochs=n_epochs,
             early_stopping=early_stopping,
             device=device,
         )
-    best_model = trainer.fit(training_model)
-    best_model_path = output_dir.joinpath("model/best_model.pth")
-    torch.save(best_model.state_dict(), str(best_model_path))
-    return best_model
+    trainer.fit(training_model)
 
 
-def run(config_filepath=""):
+def run(config_filepath: str):
     with open(config_filepath) as yml:
         config = yaml.load(yml, Loader=yaml.FullLoader)
 
@@ -264,8 +247,6 @@ def run(config_filepath=""):
     log_dir.mkdir()
     model_dir = output_dir.joinpath("model")
     model_dir.mkdir()
-    img_dir = output_dir.joinpath("images")
-    img_dir.mkdir()
 
     logger = utils.log_setup(log_dir, "training", verbose=True)
     logger.info(f"OS: {platform.system()}")
@@ -280,10 +261,14 @@ def run(config_filepath=""):
         torch.set_float32_matmul_precision("high")
     seed_everything(seed)
 
-    device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+    device = (
+        torch.device("cuda:0")
+        if torch.cuda.is_available()
+        else torch.device("cpu")
+    )
 
     logger.info("***Sampling and splitting of the dataset.***")
-    smilesX_data = data.SmilesXData(
+    smilesX_data = SmilesXData(
         smiles=dataset[smiles_col_name].to_numpy(),
         y=dataset[*prop_col_name].to_numpy(),
         augmentation=augmentation,
@@ -383,21 +368,29 @@ def run(config_filepath=""):
     }
     with open(model_dir.joinpath("all_params.yaml"), mode="w") as f:
         yaml.dump(config, f)
-
+    model = SmilesX(
+        vocab_size=best_hparams["vocab_size"],
+        lstm_dim=best_hparams["lstm_dim"],
+        dense_dim=best_hparams["dense_dim"],
+        embedding_dim=best_hparams["embedding_dim"],
+        num_of_outputs=best_hparams["num_of_outputs"]
+    )
+    lr = best_hparams["learning_rate"]
     logger.info("***Training of the best model.***")
-    best_model = training_model(
+    training_model(
+        model,
         output_dir,
-        best_hparams,
         smilesX_data,
+        lr,
         n_epochs,
         early_stopping_patience,
         device
     )
     logger.info("Training Finished !!!")
     evaluate.model_evaluation(
-        best_model,
+        model,
         logger,
-        img_dir,
+        output_dir,
         smilesX_data,
         device,
     )
